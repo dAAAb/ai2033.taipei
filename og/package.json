@@ -6,6 +6,12 @@
   "engines": {
     "node": ">=22"
   },
+  "scripts": {
+    "test": "node --test tools/card.test.mjs"
+  },
+  "overrides": {
+    "fflate": "0.7.5"
+  },
   "dependencies": {
     "@resvg/resvg-js": "2.6.2",
     "satori": "0.33.5"

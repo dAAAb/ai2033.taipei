@@ -1,0 +1,12 @@
+{
+  "name": "ai2033-checks",
+  "private": true,
+  "scripts": {
+    "test": "node --test tools/verify/*.test.mjs"
+  },
+  "devDependencies": {
+    "@electric-sql/pglite": "0.5.11",
+    "pg": "8.23.1",
+    "playwright": "1.64.1"
+  }
+}
