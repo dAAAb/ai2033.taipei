@@ -46,4 +46,3 @@ try {
   if(browser) await browser.close();
   if(server) await server.close();
 }
-

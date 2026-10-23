@@ -10,4 +10,3 @@ for(const url of urls){
   }catch(error){console.error(url,error.message);failures++;}
 }
 if(failures) process.exitCode=1;
-

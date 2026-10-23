@@ -38,4 +38,3 @@ jobs:
           name: browser-check
           path: .test-results/
           include-hidden-files: true
-

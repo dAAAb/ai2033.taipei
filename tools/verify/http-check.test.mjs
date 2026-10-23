@@ -15,4 +15,3 @@ test('HTTP 檢查遇到 404 必須失敗',async()=>{
     assert.equal(code,1);
   }finally{await server.close();await rm(dir,{recursive:true,force:true});}
 });
-
