@@ -14,6 +14,7 @@ import { PHOTO, PHOTO_CREDIT, SIGN, INTRO, MISSIONS, CHECKPOINTS, FINALE, STATS,
 import * as board from './board.js';
 import { bindControls } from './controls.js';
 import { PHYSICS } from './race-config.js';
+import { loadCity } from './city-loader.js';
 
 const $ = (id) => document.getElementById(id);
 const isTouch = matchMedia('(pointer: coarse)').matches || 'ontouchstart' in window;
@@ -104,16 +105,6 @@ const tmpV = new THREE.Vector3(), tmpV2 = new THREE.Vector3();
 
 // ---------------- load ----------------
 function setLoad(p, t) { $('loadBar').style.width = Math.round(p * 100) + '%'; if (t) $('loadText').textContent = t; }
-async function fetchJSON(url) {
-  const res = await fetch(url);
-  if (!res.ok) throw new Error(res.status + ' ' + url);
-  const total = +res.headers.get('content-length') || 0;
-  if (!res.body || !total) return res.json();
-  const reader = res.body.getReader(); const chunks = []; let got = 0;
-  for (;;) { const { done, value } = await reader.read(); if (done) break; chunks.push(value); got += value.length; setLoad(0.05 + 0.45 * got / total, `下載臺北地圖 ${(got / 1e6).toFixed(1)} MB`); }
-  const all = new Uint8Array(got); let o = 0; for (const c of chunks) { all.set(c, o); o += c.length; }
-  return JSON.parse(new TextDecoder().decode(all));
-}
 const frame = () => new Promise(r => requestAnimationFrame(r));
 
 $('introBody').innerHTML = INTRO.body;
@@ -131,7 +122,7 @@ const R = {}; // runway frame
 
 async function build() {
   setLoad(0.03, '下載臺北地圖…');
-  const D = S.D = await fetchJSON('data/city.json');
+  const D = S.D = await loadCity({low: LOW, onProgress: () => setLoad(0.25, '下載與解析臺北地圖…')});
   Object.assign(R, D.runway);
   const sc = D.scale;
   setLoad(0.5, '鋪設地面與河流…'); await frame();
@@ -205,7 +196,7 @@ async function build() {
   if (railGr.length) world.add(new THREE.Mesh(ribbons(railGr, 0.1, () => 6, c => c.setHex(0x6b5d50)), new THREE.MeshLambertMaterial({ vertexColors: true, polygonOffset: true, polygonOffsetFactor: -1, polygonOffsetUnits: -14 })));
 
   setLoad(0.66, `蓋 ${D.buildings.h.length.toLocaleString()} 棟房子…`); await frame();
-  buildings = buildBuildings(D, QUALITY.buildings);
+  buildings = await buildBuildings(D, QUALITY.buildings, 900, frame);
   world.add(buildings.group);
   footprintGrid = makeGrid(buildings.footprints.map(f => ({ ...f, kind: 'b' })));
   roadGrid = makeRoadGrid(roadLines.filter(r => !r.e));
