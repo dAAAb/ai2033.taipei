@@ -23,6 +23,7 @@ if ! have_audio && [ -n "${YT_COOKIES:-}" ]; then
 fi
 
 # 1) Invidious mirrors
+INV=''
 have_audio || INV=$(curl -s -m 30 "https://api.invidious.io/instances.json?sort_by=health" | python3 -c "
 import json,sys
 try:
