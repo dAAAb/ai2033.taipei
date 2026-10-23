@@ -12,6 +12,9 @@ import {
 } from './city.js';
 import { PHOTO, PHOTO_CREDIT, SIGN, INTRO, MISSIONS, CHECKPOINTS, FINALE, STATS, TOUR, RACE } from './content.js';
 import * as board from './board.js';
+import { bindControls } from './controls.js';
+import { PHYSICS } from './race-config.js';
+import { loadCity } from './city-loader.js';
 
 const $ = (id) => document.getElementById(id);
 const isTouch = matchMedia('(pointer: coarse)').matches || 'ontouchstart' in window;
@@ -102,16 +105,6 @@ const tmpV = new THREE.Vector3(), tmpV2 = new THREE.Vector3();
 
 // ---------------- load ----------------
 function setLoad(p, t) { $('loadBar').style.width = Math.round(p * 100) + '%'; if (t) $('loadText').textContent = t; }
-async function fetchJSON(url) {
-  const res = await fetch(url);
-  if (!res.ok) throw new Error(res.status + ' ' + url);
-  const total = +res.headers.get('content-length') || 0;
-  if (!res.body || !total) return res.json();
-  const reader = res.body.getReader(); const chunks = []; let got = 0;
-  for (;;) { const { done, value } = await reader.read(); if (done) break; chunks.push(value); got += value.length; setLoad(0.05 + 0.45 * got / total, `下載臺北地圖 ${(got / 1e6).toFixed(1)} MB`); }
-  const all = new Uint8Array(got); let o = 0; for (const c of chunks) { all.set(c, o); o += c.length; }
-  return JSON.parse(new TextDecoder().decode(all));
-}
 const frame = () => new Promise(r => requestAnimationFrame(r));
 
 $('introBody').innerHTML = INTRO.body;
@@ -129,7 +122,7 @@ const R = {}; // runway frame
 
 async function build() {
   setLoad(0.03, '下載臺北地圖…');
-  const D = S.D = await fetchJSON('data/city.json');
+  const D = S.D = await loadCity({low: LOW, onProgress: () => setLoad(0.25, '下載與解析臺北地圖…')});
   Object.assign(R, D.runway);
   const sc = D.scale;
   setLoad(0.5, '鋪設地面與河流…'); await frame();
@@ -203,7 +196,7 @@ async function build() {
   if (railGr.length) world.add(new THREE.Mesh(ribbons(railGr, 0.1, () => 6, c => c.setHex(0x6b5d50)), new THREE.MeshLambertMaterial({ vertexColors: true, polygonOffset: true, polygonOffsetFactor: -1, polygonOffsetUnits: -14 })));
 
   setLoad(0.66, `蓋 ${D.buildings.h.length.toLocaleString()} 棟房子…`); await frame();
-  buildings = buildBuildings(D, QUALITY.buildings);
+  buildings = await buildBuildings(D, QUALITY.buildings, 900, frame);
   world.add(buildings.group);
   footprintGrid = makeGrid(buildings.footprints.map(f => ({ ...f, kind: 'b' })));
   roadGrid = makeRoadGrid(roadLines.filter(r => !r.e));
@@ -941,44 +934,7 @@ function blocked(x, z) {
 }
 
 // ---------------- input ----------------
-addEventListener('keydown', (e) => {
-  if (e.target.tagName === 'INPUT') return;
-  if (!$('boardView').hidden) { if (['Escape', 'Enter', 'KeyB'].includes(e.code)) { e.preventDefault(); closeBoardView(); } return; }
-  if (!$('raceEnd').hidden) { initialsKey(e); return; }
-  if (!$('legUp').hidden) { legUpKey(e); return; }
-  S.keys[e.code] = true;
-  if (S.mode === 'intro') return;
-  if (e.code === 'KeyG' && !S.race) startRace();
-  if (e.code === 'KeyY') toggleYear();
-  if (e.code === 'KeyF') toggleMode();
-  if (e.code === 'KeyN') cycleTime();
-  if (e.code === 'KeyT') startTour();
-  if (e.code === 'KeyH') showHelp();
-  if (e.code === 'KeyB') openBoardView();
-  if (e.code === 'KeyR') resetCar();
-  if (['ArrowUp', 'ArrowDown', 'Space'].includes(e.code)) e.preventDefault();
-});
-addEventListener('keyup', (e) => { S.keys[e.code] = false; });
-canvas.addEventListener('pointerdown', (e) => { if (e.pointerType === 'touch' && e.target !== canvas) return; S.cam.drag = true; S.cam.lx = e.clientX; S.cam.ly = e.clientY; canvas.setPointerCapture(e.pointerId); });
-canvas.addEventListener('pointermove', (e) => {
-  if (!S.cam.drag) return;
-  const dx = e.clientX - S.cam.lx, dy = e.clientY - S.cam.ly; S.cam.lx = e.clientX; S.cam.ly = e.clientY;
-  if (S.mode === 'drone') { S.drone.yaw -= dx * 0.004; S.drone.pitch = THREE.MathUtils.clamp(S.drone.pitch - dy * 0.004, -1.45, 0.4); }
-  else { S.cam.yaw -= dx * 0.006; S.cam.pitch = THREE.MathUtils.clamp(S.cam.pitch + dy * 0.004, 0.05, 1.3); S.cam.userYawT = 2.5; }
-});
-canvas.addEventListener('pointerup', () => { S.cam.drag = false; });
-canvas.addEventListener('wheel', (e) => { S.cam.dist = THREE.MathUtils.clamp(S.cam.dist * (1 + Math.sign(e.deltaY) * 0.1), 7, 90); if (S.mode === 'drone') S.drone.pos.y = THREE.MathUtils.clamp(S.drone.pos.y * (1 + Math.sign(e.deltaY) * 0.1), 8, 3000); }, { passive: true });
-// joystick
-(() => {
-  const stick = $('stick'), knob = $('knob'); let id = null, cx = 0, cy = 0;
-  stick.addEventListener('pointerdown', (e) => { id = e.pointerId; const r = stick.getBoundingClientRect(); cx = r.left + r.width / 2; cy = r.top + r.height / 2; stick.setPointerCapture(id); move(e); });
-  stick.addEventListener('pointermove', (e) => { if (e.pointerId === id) move(e); });
-  const end = () => { id = null; S.joy.x = S.joy.y = 0; knob.style.transform = ''; };
-  stick.addEventListener('pointerup', end); stick.addEventListener('pointercancel', end);
-  function move(e) { let dx = e.clientX - cx, dy = e.clientY - cy; const l = Math.hypot(dx, dy), m = 55; if (l > m) { dx *= m / l; dy *= m / l; } S.joy.x = dx / m; S.joy.y = -dy / m; knob.style.transform = `translate(${dx}px,${dy}px)`; }
-  const hold = (el, key) => { el.addEventListener('pointerdown', () => S[key] = 1); for (const ev of ['pointerup', 'pointerleave', 'pointercancel']) el.addEventListener(ev, () => S[key] = 0); };
-  hold($('tUp'), 'up'); hold($('tDown'), 'down'); hold($('tBoost'), 'boost');
-})();
+bindControls({S, canvas, $, actions: {closeBoardView, initialsKey, legUpKey, startRace, toggleYear, toggleMode, cycleTime, startTour, showHelp, openBoardView, resetCar}});
 
 // ---------------- UI wiring ----------------
 $('btnStart').onclick = () => startGame(false);
@@ -1162,13 +1118,13 @@ function updateTour(dt) {
 // The map is real Taipei in metres, but the taxi is a toy at 1:6: the speedometer shows the world speed ÷ 6, so
 // the city never reads more than 100 km/h while an order still takes only a few seconds. Distances in the
 // result are the real ones on the map (× 1).
-const SPEED_SCALE = 6;
+const SPEED_SCALE = PHYSICS.scale;
 const kmh = (v) => Math.round(Math.abs(v) * 3.6 / SPEED_SCALE);   // world m/s -> speedometer km/h
 const BOOST = {
-  kmh: [50, 70, 85, 100],  // speedometer top speed per stage
-  max: [50, 70, 85, 100].map(k => k * SPEED_SCALE / 3.6),   // the same in world m/s (83 / 117 / 142 / 167; the leaderboard allows 172)
-  acc: [36, 52, 64, 75],   // throttle acceleration per stage, world m/s²
-  hold: [0, 0.6, 0.8],     // seconds in a stage before the next can open
+  kmh: PHYSICS.kmh,  // speedometer top speed per stage
+  max: PHYSICS.kmh.map(k => k * SPEED_SCALE / 3.6),   // the same in world m/s (83 / 117 / 142 / 167; the leaderboard allows 172)
+  acc: PHYSICS.acc,   // throttle acceleration per stage, world m/s²
+  hold: PHYSICS.hold,     // seconds in a stage before the next can open
   word: ['', '加速！', '衝刺！！', '極速！！！'],
   tag: ['BOOST', 'BOOST Ⅰ', 'BOOST Ⅱ', 'BOOST MAX'],
   col: [0xffffff, 0xffa53d, 0x46c8ff, 0xc56bff],
@@ -1329,7 +1285,7 @@ function startRace() {
   S.cam.yaw = 0; S.cam.userYawT = 0; S.look = null;
   camera.position.set(x - Math.sin(c.h) * 40, 26, z - Math.cos(c.h) * 40);
   const prev = S.race ? S.race.prevMission : S.mission;
-  const r = S.race = { phase: 'count', t: -3.4, stop: 0, splits: [], trace: [], next: 0, shown: null, vs: RACE_VS, prevMission: prev, pend: [], boards: null };
+  const r = S.race = { id: crypto.randomUUID(), phase: 'count', t: -3.4, stop: 0, splits: [], trace: [], next: 0, shown: null, vs: RACE_VS, prevMission: prev, pend: [], boards: null };
   board.boards(RACE.id, NST).then(b => { r.boards = b; seenBoards = b; });
   $('mTimer').hidden = false; $('mTime').textContent = fmtTime(0); $('mLeg').textContent = ''; $('mTimer').classList.remove('done');
   $('mPeek').hidden = true;
@@ -1547,7 +1503,7 @@ async function submitRun() {
   $('reSubmit').disabled = true; $('reMsg').textContent = '登錄中…';
   board.saveInitials(INIT.s);
   const last = r.splits[r.splits.length - 1];
-  const res = await board.submit(RACE.id, NST, { initials: INIT.s, legs, splits: r.splits, trace: r.trace.filter(t => t[0] <= last) });
+  const res = await board.submit(RACE.id, NST, { id: r.id, initials: INIT.s, legs, splits: r.splits, trace: r.trace.filter(t => t[0] <= last) });
   if (res.reason && ['rate_limited', 'blocked_initials', 'bad_initials'].includes(res.reason)) { $('reMsg').textContent = BOARD_ERR[res.reason]; $('reSubmit').disabled = false; return; }
   if (res.reason === 'implausible') res.why = whyRefused(res.detail);
   r.submitted = true; r.who = INIT.s; r.shared = res.shared; r.ranks = res.ranks;

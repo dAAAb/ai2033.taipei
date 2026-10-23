@@ -438,3 +438,5 @@ out = {
 os.makedirs(os.path.dirname(OUT), exist_ok=True)
 json.dump(out, open(OUT, "w"), ensure_ascii=False, separators=(",", ":"))
 print("wrote", OUT, os.path.getsize(OUT) / 1e6, "MB")
+from city_lite import write_lite
+write_lite(OUT)

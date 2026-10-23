@@ -1,3 +1,4 @@
+import { RACE } from './race-config.js';
 // What a share link points at, looked up from the public leaderboard, plus the wording around it.
 // The Supabase URL and publishable key are public (the same ones the game uses in 3d/js/board.js).
 export const SITE = 'https://ai2033.taipei';
@@ -5,15 +6,8 @@ const DB = {
   url: process.env.SUPABASE_URL || 'https://ogvqrfdgflxhfdqwtrxq.supabase.co',
   key: process.env.SUPABASE_KEY || 'sb_publishable_Fe_h6sRUasUjh3jCuXkgKA_qtCRfwpM',
 };
-export const COURSE = 'c2';   // 3d/js/content.js RACE.id
-// the five orders of course c1 (3d/js/content.js RACE)
-export const ORDERS = [
-  { item: '鮮奶', to: '國際永續生活聚落' },
-  { item: '雞腿便當', to: 'AI 產業聚落' },
-  { item: '珍珠奶茶', to: '110 公頃中央公園' },
-  { item: '鳳梨酥', to: 'XY 軸捷運 松機站' },
-  { item: '鹹酥雞', to: '基隆河岸' },
-];
+export const COURSE = RACE.id;
+export const ORDERS = RACE.stops.map(({ item, to }) => ({ item, to }));
 
 export const fmtTime = (ms) => `${Math.floor(ms / 60000)}:${((ms % 60000) / 1000).toFixed(2).padStart(5, '0')}`;
 export const fmtSec = (ms) => `${(ms / 1000).toFixed(2)} 秒`;
