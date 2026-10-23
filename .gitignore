@@ -1,1 +1,6 @@
 __pycache__/
+node_modules/
+.env
+.env.*
+!.env.example
+.vercel/

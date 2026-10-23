@@ -72,6 +72,7 @@ declare
   vmax numeric := coalesce((c->>'vmax')::numeric, 60.5);
   nstops int; ns int; n int; k int := 0; i int; lg int; lms int;
   prev jsonb; cur jsonb; st jsonb; dt numeric; d numeric; rad numeric; who text; nid bigint;
+  anchor jsonb; anchor_ms int; sample_ms int; component int; previous_split int := 0;
   out jsonb := '{}'::jsonb;
 begin
   if c is null then raise exception 'bad_course'; end if;
@@ -93,6 +94,16 @@ begin
      or coalesce(array_length(p_legs, 1), 0) < 1 or array_length(p_legs, 1) > nstops + 1 then
     raise exception 'implausible';
   end if;
+  if array_ndims(p_splits) <> 1 or array_lower(p_splits, 1) <> 1
+     or array_ndims(p_legs) <> 1 or array_lower(p_legs, 1) <> 1 then
+    raise exception 'implausible';
+  end if;
+  foreach sample_ms in array p_splits loop
+    if sample_ms is null or sample_ms - previous_split < 200 or sample_ms > 900000 then
+      raise exception 'implausible' using detail = 'splits';
+    end if;
+    previous_split := sample_ms;
+  end loop;
   foreach lg in array p_legs loop
     if lg is null or lg < 0 or lg > ns or (lg = 0 and ns < nstops) then raise exception 'implausible'; end if;
   end loop;
@@ -101,12 +112,29 @@ begin
   if n < 2 or n > 4000 then raise exception 'implausible'; end if;
   rad := (c->>'radius')::numeric + 2;
 
-  -- the first sample is on the start line within the first second
+  -- JSON null propagates through arithmetic and makes IF comparisons unknown, not true.
+  -- Validate every component before using it in any time/distance calculation.
+  for i in 0 .. n - 1 loop
+    cur := p_trace->i;
+    if jsonb_typeof(cur) is distinct from 'array' then raise exception 'implausible'; end if;
+    if jsonb_array_length(cur) <> 3 then raise exception 'implausible'; end if;
+    for component in 0 .. 2 loop
+      if jsonb_typeof(cur->component) is distinct from 'number' then raise exception 'implausible'; end if;
+    end loop;
+    if (cur->>0)::numeric <> trunc((cur->>0)::numeric)
+       or (cur->>0)::numeric not between 0 and 900000
+       or abs((cur->>1)::numeric) > 100000 or abs((cur->>2)::numeric) > 100000 then
+      raise exception 'implausible';
+    end if;
+  end loop;
+
+  -- Older clients take the first sample on the first frame; accept up to one second, never negative time.
   cur := p_trace->0;
-  if jsonb_typeof(cur) <> 'array' or jsonb_array_length(cur) <> 3 or (cur->>0)::numeric > 1000
+  if (cur->>0)::int > 1000
      or sqrt(((cur->>1)::numeric - (c->'start'->>0)::numeric) ^ 2 + ((cur->>2)::numeric - (c->'start'->>1)::numeric) ^ 2) > 60 then
     raise exception 'implausible' using detail = 'start';
   end if;
+  anchor := cur; anchor_ms := (cur->>0)::int;
   -- walk the route: time only moves forward, no sample faster than the taxi, each stop reached in order at its split
   for i in 1 .. n - 1 loop
     prev := cur; cur := p_trace->i;
@@ -114,9 +142,19 @@ begin
     dt := ((cur->>0)::numeric - (prev->>0)::numeric) / 1000;
     if dt < 0 or dt > 1.5 then raise exception 'implausible' using detail = 'clock'; end if;
     d := sqrt(((cur->>1)::numeric - (prev->>1)::numeric) ^ 2 + ((cur->>2)::numeric - (prev->>2)::numeric) ^ 2);
+    if dt = 0 and d <> 0 then raise exception 'implausible' using detail = 'clock'; end if;
     if d > vmax * dt + 3 then   -- +3 m for positions rounded to the metre
       raise exception 'implausible' using detail = format('speed %s at %s', round(d / greatest(dt, 0.05)), (cur->>0)::int);
     end if;
+    -- Bound sampling density and check displacement from an anchor, not only the preceding point.
+    -- At most one regular sample per 500 ms plus delivery samples is needed by the game.
+    sample_ms := (cur->>0)::int;
+    if i > sample_ms / 500 + 2 * ns + 2 then raise exception 'implausible' using detail = 'sampling'; end if;
+    d := sqrt(((cur->>1)::numeric - (anchor->>1)::numeric) ^ 2 + ((cur->>2)::numeric - (anchor->>2)::numeric) ^ 2);
+    if d > vmax * (sample_ms - anchor_ms) / 1000 + 3 then
+      raise exception 'implausible' using detail = 'window_speed';
+    end if;
+    if sample_ms - anchor_ms >= 500 then anchor := cur; anchor_ms := sample_ms; end if;
     if k < ns and (cur->>0)::int = p_splits[k + 1] then
       st := c->'stops'->k;
       if sqrt(((cur->>1)::numeric - (st->>0)::numeric) ^ 2 + ((cur->>2)::numeric - (st->>1)::numeric) ^ 2) > rad then
