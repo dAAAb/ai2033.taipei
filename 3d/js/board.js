@@ -18,12 +18,12 @@ export const isShared = () => !!(BOARD.url && BOARD.key);
 
 let sharedOk = false;   // the shared boards answered with the right version this session
 const lsKey = (course) => `ai2033.race.${course}`;
-const clean = (rows) => (Array.isArray(rows) ? rows : []).filter(r => r && /^[A-Z]{3}$/.test(r.i) && Number.isFinite(r.ms));
+const clean = (rows) => (Array.isArray(rows) ? rows : []).filter(r => r && /^[A-Z]{3}$/.test(r.i) && Number.isInteger(r.ms) && r.ms >= 200 && r.ms <= 900000).sort((a, b) => a.ms - b.ms);
 // this device's boards: { total: [{ i, ms }], legs: [[{ i, ms }] × stops] }
 function readLocal(course, nLegs) {
   let b = null;
   try { b = JSON.parse(localStorage.getItem(lsKey(course) + '.v2') || 'null'); } catch { /* storage off */ }
-  if (!b) {   // first version kept whole runs only
+  if (!b || typeof b !== 'object' || Array.isArray(b)) {   // first version kept whole runs only
     let old = []; try { old = JSON.parse(localStorage.getItem(lsKey(course)) || '[]'); } catch { /* storage off */ }
     b = { total: clean(old), legs: [] };
   }
@@ -31,12 +31,18 @@ function readLocal(course, nLegs) {
   return b;
 }
 function writeLocal(course, b) { try { localStorage.setItem(lsKey(course) + '.v2', JSON.stringify(b)); } catch { /* storage off */ } }
-const insertRow = (rows, row) => { rows.push(row); rows.sort((a, b) => a.ms - b.ms); rows.splice(50); return rows.indexOf(row) + 1; };
+const insertRow = (rows, row) => {
+  const previous = rows.findIndex(r => r.runId === row.runId);
+  if (previous >= 0) rows.splice(previous, 1);
+  rows.push(row); rows.sort((a, b) => a.ms - b.ms);
+  const rank = rows.indexOf(row) + 1;
+  rows.splice(50); return rank;
+};
 
 async function rpc(fn, body) {
   const headers = { apikey: BOARD.key, 'Content-Type': 'application/json' };
   if (BOARD.key.startsWith('eyJ')) headers.Authorization = `Bearer ${BOARD.key}`;   // legacy anon JWT keys
-  const res = await fetch(`${BOARD.url.replace(/\/$/, '')}/rest/v1/rpc/${fn}`, { method: 'POST', headers, body: JSON.stringify(body) });
+  const res = await fetch(`${BOARD.url.replace(/\/$/, '')}/rest/v1/rpc/${fn}`, { method: 'POST', headers, body: JSON.stringify(body), signal: AbortSignal.timeout(8000) });
   const text = await res.text();
   let data = null; try { data = JSON.parse(text); } catch { /* not json */ }
   if (!res.ok) { const e = new Error((data && data.message) || `HTTP ${res.status}`); e.reason = data && data.message; e.detail = data && data.details; throw e; }
@@ -44,11 +50,17 @@ async function rpc(fn, body) {
 }
 
 // place a time would take on a board (1 = fastest), and whether that is within the top TOP
-export const placeOf = (rows, ms) => rows.filter(r => r.ms <= ms).length + 1;
+export const placeOf = (rows, ms) => rows.filter(r => r.ms < ms).length + 1;
 export const makesBoard = (rows, ms) => placeOf(rows, ms) <= TOP;
 
 // all boards of a course, fastest first: { shared, total, legs }
-export async function boards(course, nLegs, n = TOP) {
+const pendingBoards = new Map();
+export function boards(course, nLegs, n = TOP) {
+  const key = JSON.stringify([course, nLegs, n]);
+  if (!pendingBoards.has(key)) pendingBoards.set(key, loadBoards(course, nLegs, n).finally(() => pendingBoards.delete(key)));
+  return pendingBoards.get(key);
+}
+async function loadBoards(course, nLegs, n) {
   if (isShared()) {
     try {
       const b = await rpc('race_boards', { p_course: course, p_limit: n });
@@ -57,6 +69,7 @@ export async function boards(course, nLegs, n = TOP) {
       return { shared: true, total: clean(b.total), legs: Array.from({ length: nLegs }, (_, k) => clean((b.legs || [])[k])) };
     } catch { /* fall back to this device */ }
   }
+  sharedOk = false;
   const b = readLocal(course, nLegs);
   return { shared: false, total: b.total.slice(0, n), legs: b.legs.map(r => r.slice(0, n)) };
 }
@@ -64,11 +77,12 @@ export async function boards(course, nLegs, n = TOP) {
 // run: { initials, legs: [0 = whole run, k = order k], splits: [ms at each delivery so far], trace: [[ms, x, z], …] }
 // -> { shared, ranks: { [leg]: { id?, ms, rank, total } }, reason?, detail? }
 export async function submit(course, nLegs, run) {
+  run.id ||= crypto.randomUUID();
   const b = readLocal(course, nLegs), ranks = {};
   for (const leg of run.legs) {
     const ms = leg === 0 ? run.splits[run.splits.length - 1] : run.splits[leg - 1] - (leg > 1 ? run.splits[leg - 2] : 0);
     const rows = leg === 0 ? b.total : b.legs[leg - 1];
-    ranks[leg] = { ms, rank: insertRow(rows, { i: run.initials, ms }), total: rows.length };
+    ranks[leg] = { ms, rank: insertRow(rows, { i: run.initials, ms, runId: run.id }), total: rows.length };
   }
   writeLocal(course, b);
   const local = { shared: false, ranks };

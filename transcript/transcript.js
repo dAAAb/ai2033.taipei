@@ -1,7 +1,7 @@
 // Font size + in-page search with highlighted hits.
 (() => {
   const sizes = [18, 20, 22, 25, 28]; let i = 2;
-  try { const v = +localStorage.getItem('tfs'); if (v >= 0 && v < sizes.length) i = v; } catch (e) { }
+  try { const raw = localStorage.getItem('tfs'), v = Number(raw); if (raw !== null && raw.trim() !== '' && Number.isInteger(v) && v >= 0 && v < sizes.length) i = v; } catch (e) { }
   const apply = () => { document.documentElement.style.setProperty('--fs', sizes[i] + 'px'); try { localStorage.setItem('tfs', i); } catch (e) { } };
   apply();
   document.querySelectorAll('.fs button').forEach(b => b.onclick = () => { i = Math.max(0, Math.min(sizes.length - 1, i + +b.dataset.fs)); apply(); });

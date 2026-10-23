@@ -51,7 +51,7 @@ export function cardTree(x) {
     const medal = ['#ffc83d', '#d7dde8', '#e0a370'];
     const rows = x.rows.length
       ? x.rows.map((r, j) => h('div', { alignItems: 'center', marginTop: j ? 14 : 0 },
-          h('div', { width: 72, height: 72, borderRadius: 36, background: medal[j], color: C.navy, fontSize: 44, fontWeight: 900, alignItems: 'center', justifyContent: 'center' }, String(j + 1)),
+          h('div', { width: 72, height: 72, borderRadius: 36, background: medal[j], color: C.navy, fontSize: 44, fontWeight: 900, alignItems: 'center', justifyContent: 'center' }, String(x.rows.filter(row => row.ms < r.ms).length + 1)),
           h('div', { fontSize: 72, fontWeight: 900, letterSpacing: 12, marginLeft: 30, width: 230, color: C.gold }, r.i),
           h('div', { fontSize: 72, fontWeight: 900 }, fmtAny(r.ms))))
       : [h('div', { fontSize: 60, fontWeight: 900, color: C.gold }, '還沒有人上榜・搶第一！')];

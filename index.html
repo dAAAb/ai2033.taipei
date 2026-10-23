@@ -111,7 +111,7 @@
   import { RACE } from './3d/js/content.js';
   const $ = (id) => document.getElementById(id), NST = RACE.stops.length;
   const fmt = (ms) => (ms >= 60000 ? `${Math.floor(ms / 60000)}:${((ms % 60000) / 1000).toFixed(2).padStart(5, '0')}` : `${(ms / 1000).toFixed(2)} 秒`);
-  const row = (r, k) => `<li><span class="rk">${k + 1}</span><b>${r.i}</b><span class="t">${fmt(r.ms)}</span></li>`;
+  const row = (r, k, rows) => `<li><span class="rk">${board.placeOf(rows, r.ms)}</span><b>${r.i}</b><span class="t">${fmt(r.ms)}</span></li>`;
   async function load() {
     const b = await board.boards(RACE.id, NST, 5);
     $('hbTotal').innerHTML = b.total.length ? b.total.map(row).join('') : '<li class="empty">還沒有人送完 5 單，搶第一！</li>';

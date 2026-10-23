@@ -93,7 +93,8 @@
   const fmt = (ms) => (ms >= 60000 ? fmtTime(ms) : `${(ms / 1000).toFixed(2)} 秒`);
   const tabs = [{ leg: 0, name: '總榜', title: '總榜・5 單全部送完', sub: '從松機入口出發，依序送完 5 單的總時間。' }]
     .concat(RACE.stops.map((s, k) => ({ leg: k + 1, name: `${s.icon} 第 ${k + 1} 單`, title: `第 ${k + 1} 單任務榜・${s.icon} ${s.item}`, sub: `${s.item} → ${s.to}（${s.note}）` })));
-  let tab = Math.max(0, Math.min(NST, +(new URLSearchParams(location.search).get('leg') || 0))) || 0, data = null;
+  const requested = Number(new URLSearchParams(location.search).get('leg'));
+  let tab = Number.isInteger(requested) && requested >= 0 && requested <= NST ? requested : 0, data = null;
 
   function drawTabs() {
     $('tabs').innerHTML = tabs.map(t => `<button type="button" role="tab" aria-selected="${t.leg === tab}" class="${t.leg === tab ? 'on' : ''}" data-leg="${t.leg}">${t.name}</button>`).join('');
@@ -105,7 +106,7 @@
     if (!data) return;
     const rows = tab === 0 ? data.total : data.legs[tab - 1];
     $('list').innerHTML = rows.length
-      ? rows.map((r, j) => `<li><span class="rk">${j + 1}</span><b>${r.i}</b><span class="t">${fmt(r.ms)}</span></li>`).join('')
+      ? rows.map(r => `<li><span class="rk">${board.placeOf(rows, r.ms)}</span><b>${r.i}</b><span class="t">${fmt(r.ms)}</span></li>`).join('')
       : '<li class="empty">還沒有人上榜，搶第一！</li>';
   }
   async function load() {

@@ -1329,7 +1329,7 @@ function startRace() {
   S.cam.yaw = 0; S.cam.userYawT = 0; S.look = null;
   camera.position.set(x - Math.sin(c.h) * 40, 26, z - Math.cos(c.h) * 40);
   const prev = S.race ? S.race.prevMission : S.mission;
-  const r = S.race = { phase: 'count', t: -3.4, stop: 0, splits: [], trace: [], next: 0, shown: null, vs: RACE_VS, prevMission: prev, pend: [], boards: null };
+  const r = S.race = { id: crypto.randomUUID(), phase: 'count', t: -3.4, stop: 0, splits: [], trace: [], next: 0, shown: null, vs: RACE_VS, prevMission: prev, pend: [], boards: null };
   board.boards(RACE.id, NST).then(b => { r.boards = b; seenBoards = b; });
   $('mTimer').hidden = false; $('mTime').textContent = fmtTime(0); $('mLeg').textContent = ''; $('mTimer').classList.remove('done');
   $('mPeek').hidden = true;
@@ -1434,9 +1434,9 @@ function boardRows(rows, me, n = board.TOP) {
   const list = rows.slice();
   if (me) { list.push(me); list.sort((a, b) => a.ms - b.ms || (a === me ? 1 : b === me ? -1 : 0)); }   // ties go after earlier runs
   const row = (x, rank) => `<li class="${x.me ? 'me' : ''}"><span class="rk">${rank}</span><b>${esc(x.i)}</b><span class="t">${x.ms >= 60000 ? fmtTime(x.ms) : fmtSec(x.ms)}</span></li>`;
-  let html = list.slice(0, n).map((x, j) => row(x, j + 1)).join('');
+  let html = list.slice(0, n).map(x => row(x, board.placeOf(list, x.ms))).join('');
   const at = me ? list.indexOf(me) : -1;
-  if (at >= n) html += row(me, me.rank || at + 1);
+  if (at >= n) html += row(me, me.rank || board.placeOf(list, me.ms));
   return html || '<li class="empty">還沒有人上榜，搶第一！</li>';
 }
 // how far the taxi really went on the map (real Taipei metres, not the 1:6 speedometer)
@@ -1547,7 +1547,8 @@ async function submitRun() {
   $('reSubmit').disabled = true; $('reMsg').textContent = '登錄中…';
   board.saveInitials(INIT.s);
   const last = r.splits[r.splits.length - 1];
-  const res = await board.submit(RACE.id, NST, { initials: INIT.s, legs, splits: r.splits, trace: r.trace.filter(t => t[0] <= last) });
+  const res = await board.submit(RACE.id, NST, { id: r.id, initials: INIT.s, legs, splits: r.splits, trace: r.trace.filter(t => t[0] <= last) });
+  if (S.race !== r) return; // an old request must not update a new race or a closed result screen
   if (res.reason && ['rate_limited', 'blocked_initials', 'bad_initials'].includes(res.reason)) { $('reMsg').textContent = BOARD_ERR[res.reason]; $('reSubmit').disabled = false; return; }
   if (res.reason === 'implausible') res.why = whyRefused(res.detail);
   r.submitted = true; r.who = INIT.s; r.shared = res.shared; r.ranks = res.ranks;

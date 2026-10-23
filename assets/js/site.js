@@ -6,7 +6,7 @@
   // font size (persisted per viewer)
   const sizes = [19, 21, 24, 27];
   let fi = 1;
-  try { const v = +localStorage.getItem('fs'); if (v >= 0 && v < sizes.length) fi = v; } catch (e) { }
+  try { const raw = localStorage.getItem('fs'), v = Number(raw); if (raw !== null && raw.trim() !== '' && Number.isInteger(v) && v >= 0 && v < sizes.length) fi = v; } catch (e) { }
   const applyFs = () => { document.documentElement.style.setProperty('--fs', sizes[fi] + 'px'); try { localStorage.setItem('fs', fi); } catch (e) { } };
   if (fi !== 1) applyFs();
   $$('.fontsize button').forEach(b => b.addEventListener('click', () => {
