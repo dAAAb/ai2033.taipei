@@ -1,3 +1,4 @@
+import { MIN_BOARD_REVISION } from './race-config.js';
 // Leaderboards for 2033 外送王: one for the whole run and one for each order. With the Supabase project
 // below, everyone shares the same boards (runs are checked server-side by tools/leaderboard/supabase.sql);
 // if it can't be reached, scores stay on this device.
@@ -8,7 +9,7 @@ export const BOARD = {
 // share links: per-run pages with their own preview image (og/, deployed on Vercel); empty = link straight to the game
 export const SHARE = 'https://go.ai2033.taipei';
 export const TOP = 10;   // places shown on each board, and what counts as "making the board"
-const REV = 2;           // oldest race_boards() 'rev' the game works with (rev 1 rejected today's top speed; rev 3 adds entry ids for share cards)
+const REV = MIN_BOARD_REVISION;           // oldest race_boards() 'rev' the game works with (rev 1 rejected today's top speed; rev 3 adds entry ids for share cards)
 
 // three-letter names the boards refuse (also enforced in the database)
 const BLOCK = new Set(('ASS CUM COK CNT DIC DIK FAG FCK FUC FUK FUQ FKU JIZ KKK KYS NGR NIG SEX SHT TIT VAG XXX ' +

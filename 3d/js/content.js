@@ -96,17 +96,5 @@ export const TOUR = [
   { t: 52, cap: 'AI黃金世紀，從臺北開始' },
 ];
 
-// 2033 外送王: a fixed five-order course through the AI park, timed. Points are world metres (x east, z south)
-// and must match the course the leaderboard validates (tools/leaderboard/supabase.sql) — bump `id` if they move.
-// c1 ran at the old top speed (209 km/h on the meter); c2 is the 1:6 toy-scale taxi (100 km/h on the meter).
-export const RACE = {
-  id: 'c2', title: '2033 外送王', sub: '5 單限時外送挑戰',
-  start: [101, 691], radius: 30,
-  stops: [
-    { at: [1001, 551], icon: '🥛', item: '鮮奶', to: '國際永續生活聚落', note: '新住民的早餐' },
-    { at: [-129, 471], icon: '🍱', item: '雞腿便當', to: 'AI 產業聚落', note: '工程師加班中' },
-    { at: [91, -69], icon: '🧋', item: '珍珠奶茶', to: '110 公頃中央公園', note: '野餐要全糖去冰' },
-    { at: [61, -249], icon: '🍍', item: '鳳梨酥', to: 'XY 軸捷運 松機站', note: '國際旅客的伴手禮' },
-    { at: [231, -529], icon: '🍗', item: '鹹酥雞', to: '基隆河岸', note: '河濱夜跑完的宵夜' },
-  ],
-};
+// 路線來源為 config/race.json，由 tools/build/race-config.mjs 產生。
+export { RACE } from './race-config.js';

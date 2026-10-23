@@ -36,4 +36,6 @@
 
 ## 改路線
 
-路線定義在 `3d/js/content.js` 的 `RACE`，伺服器端在 `supabase.sql` 的 `race_course()`；兩邊要一致。改了外送點就把 `id` 換成新的（例如 `c2`），舊榜單會保留在原本的 course 底下。
+路線、速度與版本的唯一來源是 `config/race.json`。修改後在根目錄執行 `node tools/build/race-config.mjs`，同步產生瀏覽器、分享卡與 SQL 設定；`node tools/build/race-config.mjs --check` 會檢查產物是否過期。產生器只更新 SQL 的路線與版本，不會覆寫登錄驗證邏輯。
+
+改變外送點或速度時新增 course（例如 `c3`），保留舊 course 的設定以繼續讀取歷史成績，再更新 `activeCourse`。套用更新後的 SQL，再部署前端與分享卡。分享卡的產物放在 `og/lib/`，所以 Vercel 仍可單獨以 `og/` 為根目錄部署。

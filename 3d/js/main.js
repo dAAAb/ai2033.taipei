@@ -12,6 +12,8 @@ import {
 } from './city.js';
 import { PHOTO, PHOTO_CREDIT, SIGN, INTRO, MISSIONS, CHECKPOINTS, FINALE, STATS, TOUR, RACE } from './content.js';
 import * as board from './board.js';
+import { bindControls } from './controls.js';
+import { PHYSICS } from './race-config.js';
 
 const $ = (id) => document.getElementById(id);
 const isTouch = matchMedia('(pointer: coarse)').matches || 'ontouchstart' in window;
@@ -941,44 +943,7 @@ function blocked(x, z) {
 }
 
 // ---------------- input ----------------
-addEventListener('keydown', (e) => {
-  if (e.target.tagName === 'INPUT') return;
-  if (!$('boardView').hidden) { if (['Escape', 'Enter', 'KeyB'].includes(e.code)) { e.preventDefault(); closeBoardView(); } return; }
-  if (!$('raceEnd').hidden) { initialsKey(e); return; }
-  if (!$('legUp').hidden) { legUpKey(e); return; }
-  S.keys[e.code] = true;
-  if (S.mode === 'intro') return;
-  if (e.code === 'KeyG' && !S.race) startRace();
-  if (e.code === 'KeyY') toggleYear();
-  if (e.code === 'KeyF') toggleMode();
-  if (e.code === 'KeyN') cycleTime();
-  if (e.code === 'KeyT') startTour();
-  if (e.code === 'KeyH') showHelp();
-  if (e.code === 'KeyB') openBoardView();
-  if (e.code === 'KeyR') resetCar();
-  if (['ArrowUp', 'ArrowDown', 'Space'].includes(e.code)) e.preventDefault();
-});
-addEventListener('keyup', (e) => { S.keys[e.code] = false; });
-canvas.addEventListener('pointerdown', (e) => { if (e.pointerType === 'touch' && e.target !== canvas) return; S.cam.drag = true; S.cam.lx = e.clientX; S.cam.ly = e.clientY; canvas.setPointerCapture(e.pointerId); });
-canvas.addEventListener('pointermove', (e) => {
-  if (!S.cam.drag) return;
-  const dx = e.clientX - S.cam.lx, dy = e.clientY - S.cam.ly; S.cam.lx = e.clientX; S.cam.ly = e.clientY;
-  if (S.mode === 'drone') { S.drone.yaw -= dx * 0.004; S.drone.pitch = THREE.MathUtils.clamp(S.drone.pitch - dy * 0.004, -1.45, 0.4); }
-  else { S.cam.yaw -= dx * 0.006; S.cam.pitch = THREE.MathUtils.clamp(S.cam.pitch + dy * 0.004, 0.05, 1.3); S.cam.userYawT = 2.5; }
-});
-canvas.addEventListener('pointerup', () => { S.cam.drag = false; });
-canvas.addEventListener('wheel', (e) => { S.cam.dist = THREE.MathUtils.clamp(S.cam.dist * (1 + Math.sign(e.deltaY) * 0.1), 7, 90); if (S.mode === 'drone') S.drone.pos.y = THREE.MathUtils.clamp(S.drone.pos.y * (1 + Math.sign(e.deltaY) * 0.1), 8, 3000); }, { passive: true });
-// joystick
-(() => {
-  const stick = $('stick'), knob = $('knob'); let id = null, cx = 0, cy = 0;
-  stick.addEventListener('pointerdown', (e) => { id = e.pointerId; const r = stick.getBoundingClientRect(); cx = r.left + r.width / 2; cy = r.top + r.height / 2; stick.setPointerCapture(id); move(e); });
-  stick.addEventListener('pointermove', (e) => { if (e.pointerId === id) move(e); });
-  const end = () => { id = null; S.joy.x = S.joy.y = 0; knob.style.transform = ''; };
-  stick.addEventListener('pointerup', end); stick.addEventListener('pointercancel', end);
-  function move(e) { let dx = e.clientX - cx, dy = e.clientY - cy; const l = Math.hypot(dx, dy), m = 55; if (l > m) { dx *= m / l; dy *= m / l; } S.joy.x = dx / m; S.joy.y = -dy / m; knob.style.transform = `translate(${dx}px,${dy}px)`; }
-  const hold = (el, key) => { el.addEventListener('pointerdown', () => S[key] = 1); for (const ev of ['pointerup', 'pointerleave', 'pointercancel']) el.addEventListener(ev, () => S[key] = 0); };
-  hold($('tUp'), 'up'); hold($('tDown'), 'down'); hold($('tBoost'), 'boost');
-})();
+bindControls({S, canvas, $, actions: {closeBoardView, initialsKey, legUpKey, startRace, toggleYear, toggleMode, cycleTime, startTour, showHelp, openBoardView, resetCar}});
 
 // ---------------- UI wiring ----------------
 $('btnStart').onclick = () => startGame(false);
@@ -1162,13 +1127,13 @@ function updateTour(dt) {
 // The map is real Taipei in metres, but the taxi is a toy at 1:6: the speedometer shows the world speed ÷ 6, so
 // the city never reads more than 100 km/h while an order still takes only a few seconds. Distances in the
 // result are the real ones on the map (× 1).
-const SPEED_SCALE = 6;
+const SPEED_SCALE = PHYSICS.scale;
 const kmh = (v) => Math.round(Math.abs(v) * 3.6 / SPEED_SCALE);   // world m/s -> speedometer km/h
 const BOOST = {
-  kmh: [50, 70, 85, 100],  // speedometer top speed per stage
-  max: [50, 70, 85, 100].map(k => k * SPEED_SCALE / 3.6),   // the same in world m/s (83 / 117 / 142 / 167; the leaderboard allows 172)
-  acc: [36, 52, 64, 75],   // throttle acceleration per stage, world m/s²
-  hold: [0, 0.6, 0.8],     // seconds in a stage before the next can open
+  kmh: PHYSICS.kmh,  // speedometer top speed per stage
+  max: PHYSICS.kmh.map(k => k * SPEED_SCALE / 3.6),   // the same in world m/s (83 / 117 / 142 / 167; the leaderboard allows 172)
+  acc: PHYSICS.acc,   // throttle acceleration per stage, world m/s²
+  hold: PHYSICS.hold,     // seconds in a stage before the next can open
   word: ['', '加速！', '衝刺！！', '極速！！！'],
   tag: ['BOOST', 'BOOST Ⅰ', 'BOOST Ⅱ', 'BOOST MAX'],
   col: [0xffffff, 0xffa53d, 0x46c8ff, 0xc56bff],
