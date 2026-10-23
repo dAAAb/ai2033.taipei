@@ -1,30 +1,42 @@
-name: verify-links
+name: verify-changes
 on:
-  workflow_dispatch:
+  pull_request:
   push:
-    paths: ['tools/verify/**', '.github/workflows/verify-links.yml']
+  workflow_dispatch:
 permissions:
-  contents: write
+  contents: read
 jobs:
   check:
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 15
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_PASSWORD: test-only
+          POSTGRES_DB: ai2033_test
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd pg_isready --health-interval 5s --health-timeout 5s --health-retries 10
+    env:
+      TEST_DATABASE_URL: postgres://postgres:test-only@127.0.0.1:5432/ai2033_test
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
-          ref: ${{ github.ref_name }}
-      - name: HTTP checks
-        run: |
-          sleep 30
-          while read -r u; do
-            [ -z "$u" ] && continue
-            out=$(curl -s -L -o /tmp/body -w '%{http_code} %{content_type} %{size_download}' -m 60 "$u")
-            echo "RESULT $out $u"
-          done < tools/verify/urls.txt
-      - name: Browser check of the public site
-        run: |
-          mkdir -p research/verify
-          npm i --no-save playwright@1.48.2 >/dev/null 2>&1 && npx playwright install --with-deps chromium >/dev/null 2>&1
-          node tools/verify/e2e.mjs https://ai2033.taipei | tee research/verify/e2e.txt
-      - if: always()
-        run: 'bash tools/fetch/commit.sh "chore(verify): end-to-end screenshots of the public site" research/verify'
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: '22'
+          cache: npm
+      - run: npm ci
+      - run: npm test
+      - run: npm --prefix og ci
+      - run: npm --prefix og test --if-present
+      - run: npx playwright install --with-deps chromium
+      - run: node tools/verify/e2e.mjs
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        if: always()
+        with:
+          name: browser-check
+          path: .test-results/
+          include-hidden-files: true
