@@ -27,6 +27,16 @@ create index if not exists race_scores_splits on public.race_scores (course, spl
 alter table public.race_scores enable row level security;   -- no policies: no direct reads or writes
 revoke all on public.race_scores from public;
 
+-- A successful request can be retried after a lost response without registering it twice.
+-- Only a SHA-256 digest and its response are retained, never the full trace.
+create table if not exists public.race_submissions (
+  fingerprint text primary key,
+  result jsonb not null,
+  created_at timestamptz not null default now()
+);
+alter table public.race_submissions enable row level security;
+revoke all on public.race_submissions from public, anon, authenticated;
+
 -- courses the game ships (3d/js/content.js RACE): start, delivery radius and stops in world metres, and the
 -- fastest the taxi can go there in world m/s plus a little slack (c1: 58 m/s taxi; c2: the 1:6 taxi, 167 m/s)
 create or replace function public.race_course(p_course text)
@@ -73,16 +83,23 @@ declare
   nstops int; ns int; n int; k int := 0; i int; lg int; lms int;
   prev jsonb; cur jsonb; st jsonb; dt numeric; d numeric; rad numeric; who text; nid bigint;
   out jsonb := '{}'::jsonb;
+  request_fingerprint text; saved_result jsonb;
 begin
   if c is null then raise exception 'bad_course'; end if;
   if p_initials is null or p_initials !~ '^[A-Z]{3}$' then raise exception 'bad_initials'; end if;
   if p_initials = any (string_to_array('ASS CUM COK CNT DIC DIK FAG FCK FUC FUK FUQ FKU JIZ KKK KYS NGR NIG SEX SHT TIT VAG XXX CNM NMB TMD MLB GAN', ' ')) then
     raise exception 'blocked_initials';
   end if;
-  -- one registration per client every 15 seconds. cf-connecting-ip is set by Cloudflare in front of Supabase and
-  -- can't be supplied by the caller; x-forwarded-for can be partly, so it's only the fallback
+  request_fingerprint := encode(sha256(convert_to(jsonb_build_array(p_course, p_initials, p_legs, p_splits, p_trace)::text, 'UTF8')), 'hex');
+  -- Consistent lock order: request, client, route. Locks are released on commit/rollback.
+  perform pg_advisory_xact_lock(hashtextextended('request:' || request_fingerprint, 0));
+  select s.result into saved_result from public.race_submissions s where s.fingerprint = request_fingerprint;
+  if found then return saved_result; end if;
+  -- Client headers must come through a trusted gateway. This protects successful registrations;
+  -- rejected-request abuse also needs a rate limit at the API gateway.
   who := md5(coalesce(current_setting('request.headers', true)::json->>'cf-connecting-ip',
                       current_setting('request.headers', true)::json->>'x-forwarded-for', '') || '|' || p_course);
+  perform pg_advisory_xact_lock(hashtextextended('client:' || who, 0));
   if exists (select 1 from public.race_scores where client = who and created_at > now() - interval '15 seconds') then
     raise exception 'rate_limited';
   end if;
@@ -127,6 +144,7 @@ begin
   end loop;
   if k <> ns or (cur->>0)::int <> p_splits[ns] then raise exception 'implausible' using detail = 'route'; end if;
   -- a run is registered once: the same split times again are a replay of someone's route samples under other initials
+  perform pg_advisory_xact_lock(hashtextextended('route:' || p_course || ':' || p_splits::text, 0));
   if exists (select 1 from public.race_scores where course = p_course and splits = p_splits) then
     raise exception 'duplicate';
   end if;
@@ -141,6 +159,7 @@ begin
       'rank', (select count(*) + 1 from public.race_scores where course = p_course and leg = lg and ms < lms),
       'total', (select count(*) from public.race_scores where course = p_course and leg = lg)));
   end loop;
+  insert into public.race_submissions (fingerprint, result) values (request_fingerprint, out);
   return out;
 end
 $$;
