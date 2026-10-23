@@ -1285,7 +1285,7 @@ function startRace() {
   S.cam.yaw = 0; S.cam.userYawT = 0; S.look = null;
   camera.position.set(x - Math.sin(c.h) * 40, 26, z - Math.cos(c.h) * 40);
   const prev = S.race ? S.race.prevMission : S.mission;
-  const r = S.race = { phase: 'count', t: -3.4, stop: 0, splits: [], trace: [], next: 0, shown: null, vs: RACE_VS, prevMission: prev, pend: [], boards: null };
+  const r = S.race = { id: crypto.randomUUID(), phase: 'count', t: -3.4, stop: 0, splits: [], trace: [], next: 0, shown: null, vs: RACE_VS, prevMission: prev, pend: [], boards: null };
   board.boards(RACE.id, NST).then(b => { r.boards = b; seenBoards = b; });
   $('mTimer').hidden = false; $('mTime').textContent = fmtTime(0); $('mLeg').textContent = ''; $('mTimer').classList.remove('done');
   $('mPeek').hidden = true;
@@ -1503,7 +1503,7 @@ async function submitRun() {
   $('reSubmit').disabled = true; $('reMsg').textContent = '登錄中…';
   board.saveInitials(INIT.s);
   const last = r.splits[r.splits.length - 1];
-  const res = await board.submit(RACE.id, NST, { initials: INIT.s, legs, splits: r.splits, trace: r.trace.filter(t => t[0] <= last) });
+  const res = await board.submit(RACE.id, NST, { id: r.id, initials: INIT.s, legs, splits: r.splits, trace: r.trace.filter(t => t[0] <= last) });
   if (res.reason && ['rate_limited', 'blocked_initials', 'bad_initials'].includes(res.reason)) { $('reMsg').textContent = BOARD_ERR[res.reason]; $('reSubmit').disabled = false; return; }
   if (res.reason === 'implausible') res.why = whyRefused(res.detail);
   r.submitted = true; r.who = INIT.s; r.shared = res.shared; r.ranks = res.ranks;

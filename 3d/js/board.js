@@ -32,7 +32,13 @@ function readLocal(course, nLegs) {
   return b;
 }
 function writeLocal(course, b) { try { localStorage.setItem(lsKey(course) + '.v2', JSON.stringify(b)); } catch { /* storage off */ } }
-const insertRow = (rows, row) => { rows.push(row); rows.sort((a, b) => a.ms - b.ms); rows.splice(50); return rows.indexOf(row) + 1; };
+const insertRow = (rows, row) => {
+  const previous = rows.findIndex(r => r.runId === row.runId);
+  if (previous >= 0) rows.splice(previous, 1);
+  rows.push(row); rows.sort((a, b) => a.ms - b.ms);
+  const rank = rows.indexOf(row) + 1;
+  rows.splice(50); return rank;
+};
 
 async function rpc(fn, body) {
   const headers = { apikey: BOARD.key, 'Content-Type': 'application/json' };
@@ -65,11 +71,12 @@ export async function boards(course, nLegs, n = TOP) {
 // run: { initials, legs: [0 = whole run, k = order k], splits: [ms at each delivery so far], trace: [[ms, x, z], …] }
 // -> { shared, ranks: { [leg]: { id?, ms, rank, total } }, reason?, detail? }
 export async function submit(course, nLegs, run) {
+  run.id ||= crypto.randomUUID();
   const b = readLocal(course, nLegs), ranks = {};
   for (const leg of run.legs) {
     const ms = leg === 0 ? run.splits[run.splits.length - 1] : run.splits[leg - 1] - (leg > 1 ? run.splits[leg - 2] : 0);
     const rows = leg === 0 ? b.total : b.legs[leg - 1];
-    ranks[leg] = { ms, rank: insertRow(rows, { i: run.initials, ms }), total: rows.length };
+    ranks[leg] = { ms, rank: insertRow(rows, { i: run.initials, ms, runId: run.id }), total: rows.length };
   }
   writeLocal(course, b);
   const local = { shared: false, ranks };
