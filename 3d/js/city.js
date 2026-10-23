@@ -209,13 +209,15 @@ export function waterMaterial() {
 // ---------- buildings ----------
 const PALETTE = [0xe9e4da, 0xd8d2c4, 0xc9c2b4, 0xbfb8ad, 0xd9c7b0, 0xc7b39a, 0xb8a58e, 0xe2d9cb, 0xa9a39a, 0xcfd3d6, 0xb9c2c9, 0xd6cfc0];
 const TALL = [0x9fb4c4, 0x8ea6b8, 0xa8b7c2, 0x7f97aa, 0xb6c3cc];
-export function buildBuildings(D, limit = Infinity, tileSize = 900) {
+export async function buildBuildings(D, limit = Infinity, tileSize = 900, yieldFrame = () => Promise.resolve()) {
   const S = D.scale, B = D.buildings;
   const n = Math.min(B.h.length, limit);
   const tiles = new Map();
   const footprints = [];   // for collisions
   let ptr = 0;
+  let lastYield = performance.now();
   for (let i = 0; i < n; i++) {
+    if (i % 512 === 0 && performance.now() - lastYield > 12) { await yieldFrame(); lastYield = performance.now(); }
     const np = B.n[i];
     let r = [], x = 0, z = 0;
     for (let j = 0; j < np; j++) { x += B.c[ptr++]; z += B.c[ptr++]; r.push([x / S, z / S]); }
@@ -292,6 +294,7 @@ export function buildBuildings(D, limit = Infinity, tileSize = 900) {
     mesh.castShadow = true; mesh.receiveShadow = true;
     mesh.name = 'tile:' + key;
     group.add(mesh);
+    if (performance.now() - lastYield > 12) { await yieldFrame(); lastYield = performance.now(); }
   }
   return { group, footprints, material: mat };
 }

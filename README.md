@@ -121,6 +121,10 @@ npx http-server -p 8123 .
 
 本站部署於 GitHub Pages（本分支根目錄），自訂網域 `ai2033.taipei` 由 `CNAME` 設定，推送後約一分鐘生效。
 
+手機／低畫質模式會載入 `3d/data/city-lite.json`，保留原先會顯示的 26,000 棟建築與完整道路、地標。
+`build_city.py` 會同時產生兩份資料；只需更新精簡檔時可執行 `python tools/build/city_lite.py`。
+JSON 解析優先在 Worker 執行，瀏覽器不支援時會退回直接載入；精簡檔暫時缺少時會退回完整地圖。
+
 ## 🎙️ 影片逐字聽打版（Whisper）
 
 YouTube 擋下雲端主機的自動下載，所以逐字稿頁目前是**市府新聞稿版致詞全文**，加上媒體報導整理的答問重點。以下任一方式提供音訊後，`fetch-transcript` 工作流程會自動用 Whisper 轉寫、轉成繁體，並更新逐字稿頁：
