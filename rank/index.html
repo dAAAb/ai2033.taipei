@@ -15,7 +15,7 @@
 <meta property="og:image:height" content="630">
 <meta name="twitter:card" content="summary_large_image">
 <meta name="twitter:image" content="https://ai2033.taipei/assets/og-rank.jpg">
-<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🏆</text></svg>">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'><rect width='64' height='64' rx='14' fill='%2314171c'/><circle cx='32' cy='32' r='12' fill='%23e0a91b'/></svg>">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@500;700;900&display=swap" rel="stylesheet">
@@ -76,9 +76,9 @@
   </section>
 
   <div class="actions">
-    <a class="btn gold" href="../3d/?race">🏁 我也要挑戰</a>
-    <button class="btn" id="share" type="button">📣 分享排行榜</button>
-    <a class="btn" href="../index.html">🏠 回首頁</a>
+    <a class="btn gold" href="../3d/?race">我也要挑戰</a>
+    <button class="btn" id="share" type="button">分享排行榜</button>
+    <a class="btn" href="../index.html">回首頁</a>
   </div>
   <div class="copy" id="copyRow" hidden><input id="copyText" readonly aria-label="分享連結"><button class="btn" id="copyBtn" type="button">複製</button></div>
 
@@ -123,13 +123,13 @@
   document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') load(); });
 
   $('share').onclick = async () => {
-    const url = board.boardLink(), text = '臺北 2033 外送王・全台排行榜：開小黃送 5 單，你上得了榜嗎？🛵';
+    const url = board.boardLink(), text = '臺北 2033 外送王・全台排行榜：開小黃送 5 單，你上得了榜嗎？';
     if (navigator.share) { try { await navigator.share({ title: '2033 外送王排行榜', text, url }); return; } catch { /* fall back to copy */ } }
     $('copyRow').hidden = false; $('copyText').value = `${text} ${url}`; $('copyText').select();
   };
   $('copyBtn').onclick = () => {
     const t = $('copyText');
-    try { navigator.clipboard.writeText(t.value).then(() => { $('copyBtn').textContent = '已複製 ✓'; }, () => t.select()); } catch { t.select(); }
+    try { navigator.clipboard.writeText(t.value).then(() => { $('copyBtn').textContent = '已複製'; }, () => t.select()); } catch { t.select(); }
   };
 </script>
 </body>

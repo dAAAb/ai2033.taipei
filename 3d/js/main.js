@@ -5,15 +5,29 @@ import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
 import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
 import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
 import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
+import { ShaderPass } from 'three/addons/postprocessing/ShaderPass.js';
 import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
 import {
   U, flatToPts, ringsOf, flatPolys, ribbons, pointInRing, signedArea, patchBuildingMaterial, patchRoadMaterial, waterMaterial,
-  buildBuildings, makeTreeGeometries, makePlane, makeTaxi, makeTaipei101, makeGrandHotel, makeFerrisWheel, mergeGeometries,
+  buildBuildings, makeTreeGeometries, makeCarGeometries, makePlane, makeTaxi, makeTaipei101, makeGrandHotel, makeFerrisWheel, mergeGeometries,
 } from './city.js';
 import { PHOTO, PHOTO_CREDIT, SIGN, INTRO, MISSIONS, CHECKPOINTS, FINALE, STATS, TOUR, RACE } from './content.js';
 import * as board from './board.js';
 
 const $ = (id) => document.getElementById(id);
+// line icons for the toolbar and touch buttons (stroke follows the text colour)
+const ICON = {
+  flag: 'M5 21V4h11l-1.6 3.5L16 11H5', trophy: 'M8 4h8v5a4 4 0 0 1-8 0zM8 6H5a3 3 0 0 0 3 4M16 6h3a3 3 0 0 1-3 4M12 13v4M8 20h8',
+  clock: 'M12 4a8 8 0 1 0 0 16 8 8 0 0 0 0-16zM12 8v4l3 2', drone: 'M4 6h5M15 6h5M6.5 6v3h11V6M9 9l-1.5 5h9L15 9M10 17h4',
+  car: 'M5 16V12l2.2-4.2h9.6L19 12v4zM4.5 12h15M7.5 16v2M16.5 16v2', walk: 'M13 4.5a1.5 1.5 0 1 1 0 .1M12 7.5l-3 4.5 3 2v6M12 14l3.5 5.5M9 12l-2.5 2.5M12 8l4 3',
+  moon: 'M19.5 14.5A8 8 0 1 1 9.5 4.5a6.5 6.5 0 0 0 10 10z', sun: 'M12 8a4 4 0 1 0 0 8 4 4 0 0 0 0-8zM12 2.5v2M12 19.5v2M2.5 12h2M19.5 12h2M5.3 5.3l1.4 1.4M17.3 17.3l1.4 1.4M5.3 18.7l1.4-1.4M17.3 6.7l1.4-1.4',
+  sunset: 'M3 18h18M7 18a5 5 0 0 1 10 0M12 6v4M5 10.5l1.5 1.5M19 10.5L17.5 12M8 21h8', film: 'M4 5h16v14H4zM8 5v14M16 5v14M4 9.5h4M4 14.5h4M16 9.5h4M16 14.5h4',
+  help: 'M12 3.5a8.5 8.5 0 1 0 0 17 8.5 8.5 0 0 0 0-17zM9.6 9.4a2.5 2.5 0 1 1 3.4 2.3c-.6.3-1 .8-1 1.5v.6M12 17v.4', home: 'M4 11l8-7 8 7M6.5 9.5V20h11V9.5',
+  x: 'M6 6l12 12M18 6L6 18', up: 'M6 15l6-6 6 6', down: 'M6 9l6 6 6-6', bolt: 'M13 3L5 14h6l-1 7 8-11h-6z',
+};
+const svgIcon = (k) => `<svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="${ICON[k]}"/></svg>`;
+const tbSet = (id, icon, label) => { $(id).innerHTML = svgIcon(icon) + `<b>${label}</b>`; };
+document.querySelectorAll('[data-i]').forEach(el => el.insertAdjacentHTML('afterbegin', svgIcon(el.dataset.i)));
 // GA4 events (assets/js/ga.js): counts only, never the player's initials
 const track = (name, p) => { try { window.gtag && window.gtag('event', name, p); } catch {} };
 const isTouch = matchMedia('(pointer: coarse)').matches || 'ontouchstart' in window;
@@ -84,16 +98,31 @@ if (QUALITY.bloom) {
   hp.needsUpdate = true;
   composer.addPass(bloom);
   composer.addPass(new OutputPass());
+  // camera-like finish after tone mapping: a touch of contrast and saturation, and a soft vignette
+  composer.addPass(new ShaderPass({
+    uniforms: { tDiffuse: { value: null } },
+    vertexShader: 'varying vec2 vUv; void main(){ vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }',
+    fragmentShader: `uniform sampler2D tDiffuse; varying vec2 vUv;
+      void main(){
+        vec3 c = texture2D(tDiffuse, vUv).rgb;
+        float l = dot(c, vec3(0.299, 0.587, 0.114));
+        c = mix(vec3(l), c, 1.12);
+        c = (c - 0.5) * 1.06 + 0.5;
+        vec2 d = vUv - 0.5; c *= 1.0 - dot(d, d) * 0.55;
+        gl_FragColor = vec4(clamp(c, 0.0, 1.0), 1.0);
+      }`,
+  }));
 }
 
 // ---------------- state ----------------
 const S = {
   D: null, year: 0, yearTarget: 0, tod: 0, todTarget: 0, timeMode: 0, // 0 golden, 1 night, 2 day
-  mode: 'intro', // intro | drive | drone | tour | cutscene
+  mode: 'intro', // intro | drive | drone | walk | tour | cutscene
   mission: 0, cpIndex: 0, finished: false,
   keys: {}, joy: { x: 0, y: 0 }, up: 0, down: 0, boost: false,
   car: { x: 0, z: 0, h: 0, v: 0, steer: 0 },
   drone: { pos: new THREE.Vector3(), yaw: 0, pitch: -0.5 },
+  walk: { pos: new THREE.Vector3(), yaw: 0, pitch: 0, step: 0 },
   cam: { yaw: 0, pitch: 0.28, dist: 16, drag: false, lx: 0, ly: 0, userYawT: 0 },
   money: 0, moneyTarget: 0,
   race: null, // 2033 外送王 run in progress
@@ -181,6 +210,11 @@ async function build() {
   const order = ground_i.slice().sort((a, b) => D.roads.k[b] - D.roads.k[a]);
   const rgeo = ribbons(order.map(i => rl[i]), (k) => 0.08 + (13 - D.roads.k[order[k]]) * 0.004, (k) => RW[D.roads.k[order[k]]], (c, k) => c.setHex(RC[D.roads.k[order[k]]]));
   const roadMesh = new THREE.Mesh(rgeo, roadMat); roadMesh.receiveShadow = true; world.add(roadMesh);
+  // concrete sidewalks along the bigger roads, drawn under them so only the kerb-side strip shows
+  const walk_i = ground_i.filter(i => D.roads.k[i] <= 8);
+  const wgeo = ribbons(walk_i.map(i => rl[i]), 0.06, (k) => RW[D.roads.k[walk_i[k]]] + 7, (c) => c.setHex(0xb4afa6));   // one shade: where two sidewalks overlap at a crossing they must not fight
+  const walkMesh = new THREE.Mesh(wgeo, new THREE.MeshLambertMaterial({ vertexColors: true, polygonOffset: true, polygonOffsetFactor: -1, polygonOffsetUnits: -8 }));
+  walkMesh.receiveShadow = true; world.add(walkMesh);
   // elevated expressways with pillars
   if (elev_i.length) {
     const eg = ribbons(elev_i.map(i => rl[i]), 11, (k) => RW[D.roads.k[elev_i[k]]], (c) => c.setHex(0x3a3d42));
@@ -220,6 +254,8 @@ async function build() {
   setLoad(0.9, '放上地標與車流…'); await frame();
   buildLandmarks(D);
   buildTraffic();
+  buildRooftops();
+  buildCrosswalks();
   buildPlayer(D);
   buildBoostFx();
   buildLabels(D);
@@ -488,21 +524,81 @@ function buildStreetTrees() {
           if (!grid.has(k)) grid.set(k, []);
           // x, z, size, turn, crown colour: mostly camphor / banyan greens, and about one in four a 台灣欒樹 in its autumn yellow or rust
           const rnd = Math.random();
-          grid.get(k).push([tx, tz, 1 + Math.random() * 0.4, Math.random() * 6.28, rnd < 0.14 ? 3 : rnd < 0.24 ? 4 : Math.floor(Math.random() * 3)]);
+          // then: unit road direction and the unit normal pointing back to the kerb (lamps and walkers use them)
+          grid.get(k).push([tx, tz, 1 + Math.random() * 0.4, Math.random() * 6.28, rnd < 0.14 ? 3 : rnd < 0.24 ? 4 : Math.floor(Math.random() * 3),
+            dx / L, dz / L, dz / L * Math.sign(s), -dx / L * Math.sign(s), Math.round(next / sp) % 2]);
         }
       }
       walked += L;
     }
   }
-  const { trunk, crownA } = makeTreeGeometries();
+  const { trunkD, crownD } = makeTreeGeometries();
   street = {
     grid, cx: Infinity, cz: Infinity,
-    trunk: new THREE.InstancedMesh(trunk, new THREE.MeshLambertMaterial({ color: 0x5e4129 }), STREET.cap),
-    crown: new THREE.InstancedMesh(crownA, new THREE.MeshLambertMaterial({ color: 0xffffff }), STREET.cap),
+    trunk: new THREE.InstancedMesh(trunkD, new THREE.MeshLambertMaterial({ color: 0x5e4129 }), STREET.cap),
+    crown: new THREE.InstancedMesh(crownD, new THREE.MeshLambertMaterial({ color: 0xffffff, vertexColors: true }), STREET.cap),
     cols: [0x3f6f35, 0x4d7f3a, 0x5d8c42, 0xc9a332, 0xa8613a].map(c => new THREE.Color(c)),
   };
   street.crown.setColorAt(0, street.cols[0]);   // create the colour buffer before the first draw compiles the shader
-  for (const m of [street.trunk, street.crown]) { m.count = 0; m.castShadow = true; m.frustumCulled = false; world.add(m); }
+  // street lamps between every other pair of trees: a pole with an arm reaching over the kerb and a head that lights at night
+  const pole = new THREE.CylinderGeometry(0.09, 0.13, 8, 6).translate(0, 4, 0);
+  const arm = new THREE.BoxGeometry(0.1, 0.1, 2.2).translate(0, 7.9, 1.05);
+  street.poleMesh = new THREE.InstancedMesh(mergeGeometries([pole, arm]), new THREE.MeshStandardMaterial({ color: 0x5b6168, roughness: 0.5, metalness: 0.6 }), STREET.cap);
+  street.lampMat = new THREE.MeshStandardMaterial({ color: 0xfff6e0, emissive: 0xffd68a, emissiveIntensity: 0.1 });
+  street.headMesh = new THREE.InstancedMesh(new THREE.BoxGeometry(0.42, 0.14, 0.8).translate(0, 7.82, 2.05), street.lampMat, STREET.cap);
+  // pedestrians: torso, a skin-and-hair head, and arms and legs that swing from shoulder and hip as they walk.
+  // Pieces carry vertex colours (skin, hair, shoes) that multiply with each walker's shirt / trouser colour.
+  const paint = (g, hex) => { const c = new THREE.Color(hex), n = g.attributes.position.count, a = new Float32Array(n * 3); for (let i = 0; i < n; i++) a.set([c.r, c.g, c.b], i * 3); g.setAttribute('color', new THREE.BufferAttribute(a, 3)); g.deleteAttribute('uv'); return g; };
+  const torso = paint(mergeGeometries([new THREE.CapsuleGeometry(0.19, 0.38, 3, 10).scale(1, 1, 0.72).translate(0, 1.2, 0), new THREE.CylinderGeometry(0.06, 0.07, 0.1, 6).translate(0, 1.5, 0)]), 0xffffff);
+  const head = mergeGeometries([paint(new THREE.SphereGeometry(0.115, 10, 8).scale(0.95, 1.08, 1).translate(0, 1.64, 0.01), 0xe2b48f),
+    paint(new THREE.SphereGeometry(0.124, 10, 6, 0, Math.PI * 2, 0, Math.PI * 0.55).translate(0, 1.655, -0.012), 0x1e1a18)]);
+  const leg = mergeGeometries([paint(new THREE.CylinderGeometry(0.075, 0.06, 0.8, 6).translate(0, -0.4, 0), 0xffffff), paint(new THREE.BoxGeometry(0.11, 0.08, 0.25).translate(0, -0.82, 0.04), 0x2a2a2a)]);
+  const armG = mergeGeometries([paint(new THREE.CapsuleGeometry(0.05, 0.42, 2, 6).translate(0, -0.27, 0), 0xffffff), paint(new THREE.SphereGeometry(0.05, 6, 4).translate(0, -0.55, 0), 0xe2b48f)]);
+  const pm = (g) => new THREE.InstancedMesh(g, new THREE.MeshLambertMaterial({ color: 0xffffff, vertexColors: true }), PEDS);
+  street.pedMesh = pm(torso); street.pedHead = pm(head);
+  street.limbs = [pm(leg), pm(leg), pm(armG), pm(armG)];   // left leg, right leg, left arm, right arm
+  street.peds = [];
+  const shirts = [0x2d4a7a, 0xe8e4dc, 0x8a2f2f, 0x2f6b4a, 0xd9a440, 0x333333, 0x7a5c9e, 0xf0f0f0, 0x4f8fc0, 0xc98aa0];
+  const trousers = [0x23324a, 0x2b2b2b, 0x5a5348, 0x3d4a5c, 0xc8c0b0, 0x1c1c1c];
+  const skins = [0xffffff, 0xf2e2d4, 0xe6cdb5, 0xd9b99c];
+  for (let i = 0; i < PEDS; i++) {
+    const sh = new THREE.Color(shirts[i % shirts.length]), tr = new THREE.Color(trousers[(i * 7) % trousers.length]);
+    street.pedMesh.setColorAt(i, sh); street.limbs[2].setColorAt(i, sh); street.limbs[3].setColorAt(i, sh);
+    street.limbs[0].setColorAt(i, tr); street.limbs[1].setColorAt(i, tr);
+    street.pedHead.setColorAt(i, new THREE.Color(skins[(i * 3) % skins.length]));
+  }
+  for (const m of [street.trunk, street.crown, street.poleMesh, street.headMesh, street.pedMesh, street.pedHead, ...street.limbs]) { m.count = 0; m.castShadow = true; m.frustumCulled = false; world.add(m); }
+}
+const _limb = new THREE.Matrix4(), _rot = new THREE.Matrix4();
+// walkers are re-seated from the street-tree grid whenever they drift too far from the camera
+const PEDS = LOW ? 120 : 360;
+function updatePeds(dt, t) {
+  if (!street || !street.list) return;
+  const P = street.peds, cx = camera.position.x, cz = camera.position.z;
+  const all = [street.pedMesh, street.pedHead, ...street.limbs];
+  if (camera.position.y > 260) { for (const m of all) m.count = 0; return; }   // too small to see from the air
+  for (let i = 0; i < PEDS; i++) {
+    let p = P[i];
+    if (!p || Math.hypot(p.x - cx, p.z - cz) > 290 || p.left <= 0) {
+      const e = street.list[Math.floor(Math.random() * street.list.length)];
+      if (!e) break;
+      const dirn = Math.random() < 0.5 ? 1 : -1, side = 1.4 + Math.random() * 0.9;
+      p = P[i] = { x: e[0] + e[7] * side, z: e[1] + e[8] * side, dx: e[5] * dirn, dz: e[6] * dirn, v: 1.1 + Math.random() * 0.6, left: 25 + Math.random() * 60, ph: Math.random() * 6.28 };
+    }
+    p.x += p.dx * p.v * dt; p.z += p.dz * p.v * dt; p.left -= p.v * dt;
+    const bob = Math.abs(Math.sin(t * p.v * 4.2 + p.ph)) * 0.05;
+    _q.setFromAxisAngle(_s.set(0, 1, 0), Math.atan2(p.dx, p.dz));
+    _m.compose(_p.set(p.x, 0.06 + bob, p.z), _q, _s.set(1, 0.92 + (i % 5) * 0.04, 1));
+    street.pedMesh.setMatrixAt(i, _m); street.pedHead.setMatrixAt(i, _m);
+    // limbs hinge at hip and shoulder; legs and the opposite arm swing together
+    const sw = Math.sin(t * p.v * 4.2 + p.ph) * 0.5;
+    for (let k = 0; k < 4; k++) {
+      const side = k % 2 ? 1 : -1, isArm = k > 1;
+      _limb.makeTranslation(side * (isArm ? 0.24 : 0.1), isArm ? 1.45 : 0.86, 0).multiply(_rot.makeRotationX((isArm ? -sw : sw) * side * (isArm ? 0.8 : 1)));
+      street.limbs[k].setMatrixAt(i, _limb.premultiply(_m));
+    }
+  }
+  for (const m of all) { m.count = P.length; m.instanceMatrix.needsUpdate = true; }
 }
 // ---------------- signs ----------------
 // 「我反毒!!」 on T霸 (tall roadside boards that reach out over the kerb, readable from both directions) and on
@@ -614,17 +710,25 @@ function updateStreetTrees() {
     }
   }
   cells.sort((a, b) => a[0] - b[0]);   // nearest first, so the cap only ever drops the far edge
-  let n = 0;
+  let n = 0, nl = 0;
+  street.list = [];
   for (const [, list] of cells) {
     for (const t of list) {
       if (n >= STREET.cap) break;
       _m.compose(_p.set(t[0], 0.05, t[1]), _q.setFromAxisAngle(_s.set(0, 1, 0), t[3]), _s.set(t[2], t[2], t[2]));
       street.trunk.setMatrixAt(n, _m); street.crown.setMatrixAt(n, _m); street.crown.setColorAt(n, street.cols[t[4]]);
       n++;
+      if (t[9] === 0) {
+        _m.compose(_p.set(t[0] + t[7] * 2.2, 0.05, t[1] + t[8] * 2.2), _q.setFromAxisAngle(_s.set(0, 1, 0), Math.atan2(t[7], t[8])), _s.set(1, 1, 1));
+        street.poleMesh.setMatrixAt(nl, _m); street.headMesh.setMatrixAt(nl, _m); nl++;
+      }
+      if (Math.hypot(t[0] - camera.position.x, t[1] - camera.position.z) < 240) street.list.push(t);
     }
   }
   street.trunk.count = street.crown.count = n;
+  street.poleMesh.count = street.headMesh.count = nl;
   street.trunk.instanceMatrix.needsUpdate = street.crown.instanceMatrix.needsUpdate = true;
+  street.poleMesh.instanceMatrix.needsUpdate = street.headMesh.instanceMatrix.needsUpdate = true;
   if (street.crown.instanceColor) street.crown.instanceColor.needsUpdate = true;
 }
 function updateFutureBuildings(t) {
@@ -666,8 +770,9 @@ function buildLandmarks(D) {
     const t2 = new THREE.CanvasTexture(c); t2.colorSpace = THREE.SRGBColorSpace; t2.anisotropy = 4;
     billboardSpots().forEach(([x, z, yaw]) => {
       const b = new THREE.Group();
-      const face = new THREE.Mesh(new THREE.PlaneGeometry(32, 16), new THREE.MeshBasicMaterial({ map: t2, side: THREE.DoubleSide, toneMapped: false }));
-      face.position.y = 22; b.add(face);
+      // two single-sided faces back to back, so the text reads correctly from both directions
+      const fm = new THREE.MeshBasicMaterial({ map: t2, toneMapped: false });
+      for (const r of [0, Math.PI]) { const face = new THREE.Mesh(new THREE.PlaneGeometry(32, 16), fm); face.position.y = 22; face.rotation.y = r; b.add(face); }
       const pole = new THREE.Mesh(new THREE.CylinderGeometry(0.7, 0.9, 22, 8).translate(0, 7, 0), new THREE.MeshLambertMaterial({ color: 0x777b80 })); b.add(pole);
       b.position.set(x, 0, z); b.rotation.y = yaw; world.add(b);
     });
@@ -687,15 +792,19 @@ function billboardSpots() {
 }
 
 // ---------------- traffic ----------------
-let carsMesh, cabsMesh, carState = [];
+let carsMesh, cabsMesh, wheelsMesh, lampsMesh, carState = [], scootMesh, riderMesh, scootState = [];
 function buildTraffic() {
   trafficRoads = roadLines.filter(r => r.k <= 4 && !r.e && r.pts.length >= 2).map(r => {
     const cum = [0]; for (let i = 1; i < r.pts.length; i++) cum.push(cum[i - 1] + Math.hypot(r.pts[i][0] - r.pts[i - 1][0], r.pts[i][1] - r.pts[i - 1][1]));
     return { ...r, cum, len: cum[cum.length - 1] };
   }).filter(r => r.len > 120);
   const n = QUALITY.cars;
-  carsMesh = new THREE.InstancedMesh(new THREE.BoxGeometry(1.9, 1.1, 4.4).translate(0, 0.85, 0), new THREE.MeshStandardMaterial({ roughness: 0.4, metalness: 0.3 }), n);
-  cabsMesh = new THREE.InstancedMesh(new THREE.BoxGeometry(1.7, 0.6, 2.3).translate(0, 1.7, -0.2), new THREE.MeshStandardMaterial({ color: 0x1b2633, roughness: 0.1, metalness: 0.6 }), n);
+  const CG = makeCarGeometries();
+  carsMesh = new THREE.InstancedMesh(CG.body, new THREE.MeshStandardMaterial({ roughness: 0.38, metalness: 0.35 }), n);
+  cabsMesh = new THREE.InstancedMesh(CG.glass, new THREE.MeshStandardMaterial({ color: 0x1b2633, roughness: 0.08, metalness: 0.7 }), n);
+  wheelsMesh = new THREE.InstancedMesh(CG.wheels, new THREE.MeshLambertMaterial({ color: 0x25272b }), n);
+  lampsMesh = new THREE.InstancedMesh(CG.lights, new THREE.MeshBasicMaterial({ vertexColors: true }), n);
+  wheelsMesh.frustumCulled = lampsMesh.frustumCulled = false; world.add(wheelsMesh, lampsMesh);
   const c = new THREE.Color(); const palette = [0xffc400, 0xffc400, 0xffc400, 0xf4f4f4, 0x222222, 0x9aa3ad, 0xb3261e, 0x1f4e8c, 0xf4f4f4, 0x555c66];
   for (let i = 0; i < n; i++) {
     const road = trafficRoads[Math.floor(Math.random() * trafficRoads.length)];
@@ -704,6 +813,20 @@ function buildTraffic() {
   }
   carsMesh.castShadow = true; carsMesh.frustumCulled = cabsMesh.frustumCulled = false;
   world.add(carsMesh, cabsMesh);
+  // scooters keep to the kerb-side lane, the way Taipei traffic actually looks
+  const ns = LOW ? 160 : 480;
+  const deck = mergeGeometries([new THREE.BoxGeometry(0.55, 0.45, 1.75).translate(0, 0.55, 0), new THREE.BoxGeometry(0.5, 0.5, 0.5).translate(0, 0.95, -0.35), new THREE.BoxGeometry(0.08, 0.7, 0.08).translate(0, 1.05, 0.72)]);
+  const rider = mergeGeometries([new THREE.CapsuleGeometry(0.22, 0.45, 3, 8).translate(0, 1.45, -0.2), new THREE.SphereGeometry(0.17, 8, 6).translate(0, 2.0, -0.15)]);
+  scootMesh = new THREE.InstancedMesh(deck, new THREE.MeshStandardMaterial({ roughness: 0.45, metalness: 0.2 }), ns);
+  riderMesh = new THREE.InstancedMesh(rider, new THREE.MeshLambertMaterial({ color: 0xffffff }), ns);
+  const sc = [0xf2f2f2, 0x8fa3b8, 0xc4302b, 0x2b2b2b, 0x6fb7a6, 0xe6c35c, 0xf2f2f2, 0x4b5a6a], rc = [0x2d4a7a, 0x3c3c3c, 0x8a2f2f, 0x2f6b4a, 0xd9a440, 0x6b6b6b, 0x1f6aa5];
+  for (let i = 0; i < ns; i++) {
+    const road = trafficRoads[Math.floor(Math.random() * trafficRoads.length)];
+    scootState.push({ road, s: Math.random() * road.len, dirn: Math.random() < 0.5 ? 1 : -1, v: 7 + Math.random() * 6, lane: 0.38 + Math.random() * 0.07 });
+    scootMesh.setColorAt(i, c.setHex(sc[i % sc.length])); riderMesh.setColorAt(i, c.setHex(rc[i % rc.length]));
+  }
+  scootMesh.castShadow = riderMesh.castShadow = true; scootMesh.frustumCulled = riderMesh.frustumCulled = false;
+  world.add(scootMesh, riderMesh);
 }
 function roadPoint(r, s, out) {
   s = Math.max(0, Math.min(r.len - 0.01, s));
@@ -713,7 +836,18 @@ function roadPoint(r, s, out) {
   const l = Math.hypot(out.dx, out.dz) || 1; out.dx /= l; out.dz /= l; return out;
 }
 const _rp = {};
+// advance one vehicle along its road and leave its transform in _m
+function driveAlong(c, dt) {
+  c.s += c.v * c.dirn * dt;
+  if (c.s > c.road.len || c.s < 0) { c.road = trafficRoads[Math.floor(Math.random() * trafficRoads.length)]; c.dirn = Math.random() < 0.5 ? 1 : -1; c.s = c.dirn > 0 ? 0 : c.road.len; }
+  roadPoint(c.road, c.s, _rp);
+  const dx = _rp.dx * c.dirn, dz = _rp.dz * c.dirn, off = c.road.w * c.lane;
+  _q.setFromAxisAngle(_s.set(0, 1, 0), Math.atan2(dx, dz));
+  _m.compose(_p.set(_rp.x - dz * off, 0.15, _rp.z + dx * off), _q, _s.set(1, 1, 1));
+}
 function updateTraffic(dt) {
+  for (let i = 0; i < scootState.length; i++) { driveAlong(scootState[i], dt); scootMesh.setMatrixAt(i, _m); riderMesh.setMatrixAt(i, _m); }
+  if (scootMesh) scootMesh.instanceMatrix.needsUpdate = riderMesh.instanceMatrix.needsUpdate = true;
   const fut = S.year > 0.5;
   for (let i = 0; i < carState.length; i++) {
     const c = carState[i];
@@ -726,9 +860,83 @@ function updateTraffic(dt) {
     const yaw = Math.atan2(dx, dz);
     _q.setFromAxisAngle(_s.set(0, 1, 0), yaw);
     _m.compose(_p.set(x, 0.15, z), _q, _s.set(1, 1, 1));
-    carsMesh.setMatrixAt(i, _m); cabsMesh.setMatrixAt(i, _m);
+    carsMesh.setMatrixAt(i, _m); cabsMesh.setMatrixAt(i, _m); wheelsMesh.setMatrixAt(i, _m); lampsMesh.setMatrixAt(i, _m);
   }
-  carsMesh.instanceMatrix.needsUpdate = cabsMesh.instanceMatrix.needsUpdate = true;
+  carsMesh.instanceMatrix.needsUpdate = cabsMesh.instanceMatrix.needsUpdate = wheelsMesh.instanceMatrix.needsUpdate = lampsMesh.instanceMatrix.needsUpdate = true;
+}
+
+// ---------------- city detail ----------------
+// Taipei rooftops: water tanks (steel or blue plastic), air-conditioner boxes and stair huts on the low and mid-rise blocks
+function buildRooftops() {
+  const tanks = [], boxes = [], cap = LOW ? 8000 : 30000;
+  // nearest the airport first, so the cap only ever trims the far edge of the map
+  const order = buildings.footprints.slice().sort((a, b) => Math.hypot(a.minx - R.c[0], a.minz - R.c[1]) - Math.hypot(b.minx - R.c[0], b.minz - R.c[1]));
+  for (const f of order) {
+    if (f.f !== 0 || f.h < 7 || f.h > 70) continue;
+    const w = f.maxx - f.minx, d = f.maxz - f.minz;
+    if (w * d < 90 || tanks.length + boxes.length > cap) continue;
+    const seed = Math.abs(Math.sin(f.minx * 12.9898 + f.minz * 78.233) * 43758.5453) % 1;
+    const n = 2 + Math.floor(seed * 3);
+    for (let i = 0; i < n; i++) {
+      const x = f.minx + w * (0.22 + 0.56 * ((seed * (i + 3) * 7.31) % 1)), z = f.minz + d * (0.22 + 0.56 * ((seed * (i + 5) * 3.77) % 1));
+      if (!pointInRing(x, z, f.r)) continue;
+      const turn = seed * 6.28 + i;
+      if (i === 0 && seed < 0.75) tanks.push([x, f.h, z, turn, seed < 0.4 ? 1 : 0]);
+      else if (i === 1 && f.h > 12) boxes.push([x, f.h, z, turn, 2.6, 2.8, 3.2, 0]);   // stair hut
+      else boxes.push([x, f.h, z, turn, 1.1, 0.8, 0.7, 1]);                        // AC unit
+    }
+  }
+  const tankGeo = mergeGeometries([new THREE.CylinderGeometry(0.95, 0.95, 1.7, 8).translate(0, 1.35, 0), new THREE.BoxGeometry(1.6, 0.5, 1.6).translate(0, 0.25, 0)]);
+  const tm = new THREE.InstancedMesh(tankGeo, new THREE.MeshStandardMaterial({ roughness: 0.35, metalness: 0.55 }), Math.max(1, tanks.length));
+  const bm = new THREE.InstancedMesh(new THREE.BoxGeometry(1, 1, 1).translate(0, 0.5, 0), new THREE.MeshLambertMaterial({ color: 0xffffff }), Math.max(1, boxes.length));
+  const c = new THREE.Color();
+  tanks.forEach((t, i) => {
+    _m.compose(_p.set(t[0], t[1], t[2]), _q.setFromAxisAngle(_s.set(0, 1, 0), t[3]), _s.set(1, 1, 1)); tm.setMatrixAt(i, _m);
+    tm.setColorAt(i, c.setHex(t[4] ? 0x3a6fb0 : 0xd4d8dc));
+  });
+  boxes.forEach((b, i) => {
+    _m.compose(_p.set(b[0], b[1], b[2]), _q.setFromAxisAngle(_s.set(0, 1, 0), b[3]), _s.set(b[4], b[5], b[6])); bm.setMatrixAt(i, _m);
+    bm.setColorAt(i, c.setHex(b[7] ? 0xe4e2dc : 0xb9b2a6));
+  });
+  for (const m of [tm, bm]) { m.castShadow = m.receiveShadow = true; m.computeBoundingSphere(); world.add(m); }
+}
+// zebra crossings on every arm of each junction between major roads (OSM roads share the junction node)
+function buildCrosswalks() {
+  const nodes = new Map();
+  roadLines.forEach((r, ri) => {
+    if (r.e || r.k > 4) return;
+    r.pts.forEach((p, i) => { const k = Math.round(p[0] * 2) + ',' + Math.round(p[1] * 2); if (!nodes.has(k)) nodes.set(k, []); nodes.get(k).push([ri, i]); });
+  });
+  const stripes = [], cap = LOW ? 3000 : 9000;
+  for (const list of nodes.values()) {
+    if (new Set(list.map(e => e[0])).size < 2 || stripes.length > cap) continue;
+    const wmax = Math.max(...list.map(e => roadLines[e[0]].w));
+    for (const [ri, i] of list) {
+      const r = roadLines[ri], p = r.pts[i];
+      for (const j of [i - 1, i + 1]) {
+        const q = r.pts[j]; if (!q) continue;
+        const dx = q[0] - p[0], dz = q[1] - p[1], L = Math.hypot(dx, dz), off = wmax / 2 + 3;
+        if (L < off + 4) continue;
+        const ux = dx / L, uz = dz / L, cx = p[0] + ux * off, cz = p[1] + uz * off, yaw = Math.atan2(ux, uz);
+        stripes.push([cx, cz, yaw, r.w - 1.8]);
+      }
+    }
+  }
+  // one quad per crossing, stretched to the road width; the bars are drawn in the shader, blurred over a pixel so they never shimmer
+  const geo = new THREE.PlaneGeometry(1, 3.4).rotateX(-Math.PI / 2);
+  const mat = new THREE.MeshLambertMaterial({ color: 0xe6e3dc, transparent: true, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -16 });
+  mat.onBeforeCompile = (sh) => {
+    sh.vertexShader = sh.vertexShader.replace('#include <common>', '#include <common>\nvarying float vAcross;')
+      .replace('#include <begin_vertex>', '#include <begin_vertex>\nvAcross = position.x * length(instanceMatrix[0].xyz);');
+    sh.fragmentShader = sh.fragmentShader.replace('#include <common>', '#include <common>\nvarying float vAcross;')
+      .replace('#include <color_fragment>', `#include <color_fragment>
+        float u = vAcross / 1.15, w = max(fwidth(u), 1e-4), f = abs(fract(u) - 0.5);
+        float bar = 1.0 - smoothstep(0.26 - w, 0.26 + w, f);
+        diffuseColor.a *= mix(0.52, bar, 1.0 - smoothstep(0.3, 0.6, w)) * 0.92;`);
+  };
+  const zm = new THREE.InstancedMesh(geo, mat, Math.max(1, stripes.length));
+  stripes.forEach((st, i) => { _m.compose(_p.set(st[0], 0.15, st[1]), _q.setFromAxisAngle(_s.set(0, 1, 0), st[2]), _s.set(st[3], 1, 1)); zm.setMatrixAt(i, _m); });
+  zm.receiveShadow = true; zm.computeBoundingSphere(); world.add(zm);
 }
 
 // ---------------- player ----------------
@@ -800,10 +1008,10 @@ function buildLabels(D) {
   const pc = cen(F.park), ac = cen(F.ai), lc = cen(F.live);
   S.zoneCentres = { park: pc, ai: [F.landmark[0], F.landmark[1]], live: lc, metro: F.stations[0], river: null, renewal: null };
   const pl = [R.c[0] - R.u[0] * R.L * 0.3 + R.n[0] * (R.tPark - 300), R.c[1] - R.u[1] * R.L * 0.3 + R.n[1] * (R.tPark - 300)];
-  addLabel('🌳 110公頃 中央公園', pl[0], 50, pl[1], 'zone', { when: 'future', max: 9000 });
-  addLabel('🤖 100公頃 AI產業聚落', F.landmark[0], 420, F.landmark[1], 'zone', { when: 'future', max: 12000 });
-  addLabel('🏡 90公頃 國際永續生活聚落', lc[0], 110, lc[1], 'zone', { when: 'future', max: 9000 });
-  addLabel('✈️ 松山機場（2026）', R.c[0], 80, R.c[1], 'zone', { when: 'past', max: 12000 });
+  addLabel('110公頃 中央公園', pl[0], 50, pl[1], 'zone', { when: 'future', max: 9000 });
+  addLabel('100公頃 AI產業聚落', F.landmark[0], 420, F.landmark[1], 'zone', { when: 'future', max: 12000 });
+  addLabel('90公頃 國際永續生活聚落', lc[0], 110, lc[1], 'zone', { when: 'future', max: 9000 });
+  addLabel('松山機場（2026）', R.c[0], 80, R.c[1], 'zone', { when: 'past', max: 12000 });
   F.stations.forEach(([x, z], i) => addLabel(i === 0 ? 'Ⓜ XY軸捷運 松機站' : 'Ⓜ XY軸捷運', x, 30, z, 'metro', { when: 'future', max: 4000 }));
   F.corridors.forEach(c => addLabel(c.n, c.c[0] * 0.5 / sc * sc + c.c[2] * 0.5, 20, c.c[1] * 0.5 + c.c[3] * 0.5, 'small', { when: 'future', max: 3500 }));
   const L = D.landmarks;
@@ -812,7 +1020,7 @@ function buildLabels(D) {
   addLabel('美麗華摩天輪', L.miramar[0], 150, L.miramar[1], 'small', { max: 6000 });
   // direction beacons to the other tech parks (outside the map)
   const P = (lat, lon) => [(lon - D.origin[1]) * 111320 * Math.cos(D.origin[0] * Math.PI / 180), (D.origin[0] - lat) * 110574];
-  [['⬆ 北士科・輝達', P(25.098, 121.523)], ['➡ 內湖科技園區', P(25.0805, 121.5745)], ['➡ 南港軟體園區', P(25.058, 121.600)]].forEach(([n, p]) => addLabel(n, p[0], 90, p[1], 'small', { max: 9000 }));
+  [['↑ 北士科・輝達', P(25.098, 121.523)], ['→ 內湖科技園區', P(25.0805, 121.5745)], ['→ 南港軟體園區', P(25.058, 121.600)]].forEach(([n, p]) => addLabel(n, p[0], 90, p[1], 'small', { max: 9000 }));
   // stations & neighbourhoods from OSM
   D.labels.filter(l => l.k === 'station').slice(0, 40).forEach(l => addLabel('Ⓜ ' + l.n.replace(/站$/, '') + '站', l.x, 22, l.z, 'small', { max: 1600 }));
   D.labels.filter(l => ['suburb', 'quarter'].includes(l.k)).slice(0, 20).forEach(l => addLabel(l.n, l.x, 60, l.z, 'small', { min: 600, max: 7000 }));
@@ -820,7 +1028,7 @@ function buildLabels(D) {
   const river = waterRings.length ? nearestWaterPoint(pc) : [pc[0], pc[1] - 400];
   S.zoneCentres.river = river;
   S.zoneCentres.renewal = [R.c[0] - R.u[0] * (R.L / 2 + 700), R.c[1] - R.u[1] * (R.L / 2 + 700)];
-  S.cpLabel = addLabel('★ 檢查點', 0, 40, 0, 'cp', { max: 99999 }); S.cpLabel.hidden = true; S.cpLabel.vis = false;
+  S.cpLabel = addLabel('檢查點', 0, 40, 0, 'cp', { max: 99999 }); S.cpLabel.hidden = true; S.cpLabel.vis = false;
 }
 function nearestWaterPoint(p) {
   let best = null, bd = Infinity;
@@ -907,7 +1115,7 @@ function makeRoadGrid(lines, cell = 60) {
   const g = new Map();
   lines.forEach(r => { for (let i = 1; i < r.pts.length; i++) {
     const a = r.pts[i - 1], b = r.pts[i];
-    const seg = { a, b, w: r.w };
+    const seg = { a, b, w: r.w, n: r.n };
     for (let x = Math.floor(Math.min(a[0], b[0]) / cell); x <= Math.floor(Math.max(a[0], b[0]) / cell); x++)
       for (let z = Math.floor(Math.min(a[1], b[1]) / cell); z <= Math.floor(Math.max(a[1], b[1]) / cell); z++) {
         const k = x + ',' + z; if (!g.has(k)) g.set(k, []); g.get(k).push(seg);
@@ -926,6 +1134,29 @@ function onRoad(x, z) {
     if (Math.hypot(x - ax - dx * t, z - az - dz * t) < s.w / 2 + 2) return true;
   }
   return false;
+}
+// name of the nearest named road, for the street sign in drive and street-view modes
+function streetName(x, z) {
+  const C = roadGrid.cell; let best = null, bd = Infinity;
+  for (let gx = Math.floor(x / C) - 1; gx <= Math.floor(x / C) + 1; gx++) for (let gz = Math.floor(z / C) - 1; gz <= Math.floor(z / C) + 1; gz++) {
+    for (const s of roadGrid.g.get(gx + ',' + gz) || []) {
+      if (!(s.n >= 0)) continue;
+      const [ax, az] = s.a, dx = s.b[0] - ax, dz = s.b[1] - az, l2 = dx * dx + dz * dz || 1;
+      const t = Math.max(0, Math.min(1, ((x - ax) * dx + (z - az) * dz) / l2));
+      const d = Math.hypot(x - ax - dx * t, z - az - dz * t) - s.w / 2;
+      if (d < bd) { bd = d; best = s; }
+    }
+  }
+  return best && bd < 25 ? S.D.roadNames[best.n] : '';
+}
+function updateWhere(t) {
+  if (t - (S.whereT || 0) < 0.5) return;
+  S.whereT = t;
+  const on = (S.mode === 'drive' || S.mode === 'walk') && $('intro').hidden;
+  const p = S.mode === 'walk' ? S.walk.pos : S.car;
+  const name = on ? streetName(p.x, p.z) : '';
+  const el = $('where');
+  if (name !== el.textContent) { el.textContent = name; el.hidden = !name; }
 }
 let _corrSegs = null;
 function corridorSegs() { if (!_corrSegs) { _corrSegs = []; future.userData.corridors.forEach(l => { for (let i = 1; i < l.length; i++) _corrSegs.push({ a: l[i - 1], b: l[i], w: 24 }); }); } return _corrSegs; }
@@ -948,11 +1179,13 @@ addEventListener('keydown', (e) => {
   if (!$('boardView').hidden) { if (['Escape', 'Enter', 'KeyB'].includes(e.code)) { e.preventDefault(); closeBoardView(); } return; }
   if (!$('raceEnd').hidden) { initialsKey(e); return; }
   if (!$('legUp').hidden) { legUpKey(e); return; }
+  if (EMBEDDED && e.code === 'Escape' && $('help').hidden && $('finale').hidden) { closeEmbed(); return; }
   S.keys[e.code] = true;
   if (S.mode === 'intro') return;
   if (e.code === 'KeyG' && !S.race) startRace();
   if (e.code === 'KeyY') toggleYear();
   if (e.code === 'KeyF') toggleMode();
+  if (e.code === 'KeyV') toggleWalk();
   if (e.code === 'KeyN') cycleTime();
   if (e.code === 'KeyT') startTour();
   if (e.code === 'KeyH') showHelp();
@@ -966,6 +1199,7 @@ canvas.addEventListener('pointermove', (e) => {
   if (!S.cam.drag) return;
   const dx = e.clientX - S.cam.lx, dy = e.clientY - S.cam.ly; S.cam.lx = e.clientX; S.cam.ly = e.clientY;
   if (S.mode === 'drone') { S.drone.yaw -= dx * 0.004; S.drone.pitch = THREE.MathUtils.clamp(S.drone.pitch - dy * 0.004, -1.45, 0.4); }
+  else if (S.mode === 'walk') { S.walk.yaw -= dx * 0.004; S.walk.pitch = THREE.MathUtils.clamp(S.walk.pitch - dy * 0.004, -1.2, 1.2); }
   else { S.cam.yaw -= dx * 0.006; S.cam.pitch = THREE.MathUtils.clamp(S.cam.pitch + dy * 0.004, 0.05, 1.3); S.cam.userYawT = 2.5; }
 });
 canvas.addEventListener('pointerup', () => { S.cam.drag = false; });
@@ -982,6 +1216,19 @@ canvas.addEventListener('wheel', (e) => { S.cam.dist = THREE.MathUtils.clamp(S.c
   hold($('tUp'), 'up'); hold($('tDown'), 'down'); hold($('tBoost'), 'boost');
 })();
 
+// ---------------- embedded in the main page ----------------
+// When the site shows this page in its full-screen layer, "back to the site" closes that layer instead of loading
+// the site inside the game, and links to other pages open over the whole window.
+const EMBEDDED = window.parent !== window;
+const closeEmbed = () => window.parent.postMessage({ type: 'close3d' }, location.origin);
+if (EMBEDDED) {
+  document.addEventListener('click', (e) => {
+    const a = e.target.closest('a[href^="../"]'); if (!a) return;
+    if (/^\.\.\/index\.html$/.test(a.getAttribute('href'))) { e.preventDefault(); closeEmbed(); }
+    else if (!a.target) a.target = '_top';
+  });
+}
+
 // ---------------- UI wiring ----------------
 $('btnStart').onclick = () => startGame(false);
 $('btnTour').onclick = () => startGame(true);
@@ -989,6 +1236,7 @@ $('btnRace').onclick = () => startRace();
 $('tbRace').onclick = () => (S.race ? leaveRace() : startRace());
 $('tbYear').onclick = () => toggleYear();
 $('tbMode').onclick = () => toggleMode();
+$('tbWalk').onclick = () => toggleWalk();
 $('tbTime').onclick = () => cycleTime();
 $('tbTour').onclick = () => startTour();
 $('tbHelp').onclick = () => showHelp();
@@ -1004,7 +1252,7 @@ function startGame(tour) {
   const c = S.car; camera.position.set(c.x - Math.sin(c.h) * 60, 40, c.z - Math.cos(c.h) * 60); // swoop in from above
   setMission(0);
   setTime(0);
-  if (tour) startTour(); else toast('W A S D / 方向鍵開車，滑鼠拖曳轉視角 🚕');
+  if (tour) startTour(); else toast('W A S D / 方向鍵開車，滑鼠拖曳轉視角 ');
 }
 function toast(t, ms = 3500) { const el = $('toast'); el.textContent = t; el.hidden = false; clearTimeout(el._t); el._t = setTimeout(() => el.hidden = true, ms); }
 function banner(a, b, ms = 3200) { const el = $('banner'); $('b1').textContent = a; $('b2').textContent = b || ''; el.hidden = false; el.style.animation = 'none'; void el.offsetWidth; el.style.animation = ''; clearTimeout(el._t); el._t = setTimeout(() => el.hidden = true, ms); }
@@ -1028,12 +1276,12 @@ function updateCheckpoint() {
   if (S.cpLabel) { S.cpLabel.hidden = !t; if (!t) { S.cpLabel.el.style.display = 'none'; S.cpLabel.vis = false; } }
   if (!t) return;
   checkpointMesh.position.set(t.x, 3, t.z);
-  S.cpLabel.pos.set(t.x, 30, t.z); S.cpLabel.el.textContent = '★ ' + t.label; S.cpLabel.w = 0;
+  S.cpLabel.pos.set(t.x, 30, t.z); S.cpLabel.el.textContent = '' + t.label; S.cpLabel.w = 0;
 }
 function checkMission() {
   if (S.race) return;   // deliveries are checked by updateRace
   const t = currentTarget(); if (!t) return;
-  const px = S.mode === 'drone' ? S.drone.pos.x : S.car.x, pz = S.mode === 'drone' ? S.drone.pos.z : S.car.z;
+  const at = S.mode === 'drone' ? S.drone.pos : S.mode === 'walk' ? S.walk.pos : null, px = at ? at.x : S.car.x, pz = at ? at.z : S.car.z;
   const r = S.mode === 'drone' ? 90 : 30;
   if (Math.hypot(px - t.x, pz - t.z) > r) return;
   if (S.mission === 0) { checkpointMesh.visible = false; transformCutscene(); }
@@ -1078,8 +1326,8 @@ function setYear(y) {
 function cycleTime() { setTime((S.timeMode + 1) % 3); }
 function setTime(m) {
   S.timeMode = m; S.todTarget = m === 1 ? 1 : 0;
-  const names = ['🌙 <b>夜晚</b>', '☀️ <b>白天</b>', '🌅 <b>黃昏</b>'];
-  $('tbTime').innerHTML = names[m];
+  const names = [['moon', '夜晚'], ['sun', '白天'], ['sunset', '黃昏']];
+  tbSet('tbTime', ...names[m]);
 }
 function toggleMode() {
   if (raceLock()) return;
@@ -1087,11 +1335,48 @@ function toggleMode() {
   if (S.mode === 'drive') {
     S.mode = 'drone'; S.drone.pos.set(S.car.x - Math.sin(S.car.h) * 45, 180, S.car.z - Math.cos(S.car.h) * 45); S.drone.yaw = S.car.h + Math.PI; S.drone.pitch = -0.7;
     S.blend = 0; S.blendFrom = camera.position.clone(); S.blendQ = camera.quaternion.clone();
-    $('tbMode').innerHTML = '🚕 <b>開車</b>'; toast('空拍模式：WASD 移動、E/Q 升降、拖曳轉視角');
+    tbSet('tbMode', 'car', '開車'); toast('空拍模式：WASD 移動、E/Q 升降、拖曳轉視角');
   } else {
-    S.mode = 'drive'; $('tbMode').innerHTML = '🚁 <b>空拍</b>'; S.look = null;
+    S.mode = 'drive'; tbSet('tbMode', 'drone', '空拍'); tbSet('tbWalk', 'walk', '街景'); S.look = null;
     if (blocked(S.car.x, S.car.z)) resetCar();
   }
+}
+// street view: step out of the taxi onto the nearest sidewalk and look around at eye height
+function toggleWalk() {
+  if (raceLock()) return;
+  if (S.mode === 'tour') endTour();
+  if (S.mode === 'walk') { S.mode = 'drive'; S.look = null; tbSet('tbWalk', 'walk', '街景'); tbSet('tbMode', 'drone', '空拍'); return; }
+  const c = S.car, w = S.walk;
+  let x = c.x, z = c.z;
+  for (const d of [7, 10, 13, 16, 20]) for (const sd of [1, -1]) {
+    const tx = c.x + Math.cos(c.h) * d * sd, tz = c.z - Math.sin(c.h) * d * sd;
+    if (x === c.x && !blocked(tx, tz) && !onRoad(tx, tz)) { x = tx; z = tz; }
+  }
+  w.pos.set(x, 1.7, z); w.yaw = c.h + Math.PI; w.pitch = 0.02;
+  S.mode = 'walk'; S.blend = 0; S.blendFrom = camera.position.clone(); S.blendQ = camera.quaternion.clone();
+  tbSet('tbWalk', 'car', '上車'); tbSet('tbMode', 'drone', '空拍');
+  toast('街景模式：WASD 走路、Shift 小跑、拖曳看四周，V 回到車上');
+  track('walk_mode');
+}
+function updateWalk(dt) {
+  const k = S.keys, w = S.walk;
+  const sp = k.ShiftLeft || k.ShiftRight || S.boost ? 9 : 4;
+  const f = THREE.MathUtils.clamp((k.KeyW || k.ArrowUp ? 1 : 0) - (k.KeyS || k.ArrowDown ? 1 : 0) + S.joy.y + S.up - S.down, -1, 1);
+  const r = isTouch ? 0 : (k.KeyD ? 1 : 0) - (k.KeyA ? 1 : 0);
+  w.yaw -= ((k.ArrowRight ? 1 : 0) - (k.ArrowLeft ? 1 : 0) + (isTouch ? S.joy.x : 0)) * dt * 1.6;
+  const mx = (-Math.sin(w.yaw) * f + Math.cos(w.yaw) * r) * sp * dt, mz = (-Math.cos(w.yaw) * f - Math.sin(w.yaw) * r) * sp * dt;
+  if (!blocked(w.pos.x + mx, w.pos.z + mz)) { w.pos.x += mx; w.pos.z += mz; }
+  else if (!blocked(w.pos.x + mx, w.pos.z)) w.pos.x += mx;
+  else if (!blocked(w.pos.x, w.pos.z + mz)) w.pos.z += mz;
+  const moving = Math.hypot(mx, mz) / Math.max(dt, 1e-4);
+  w.step += moving * dt * 1.9;
+  w.pos.y = 1.7 + Math.sin(w.step) * 0.035 * Math.min(1, moving / 4);
+  _qd.setFromEuler(_ed.set(w.pitch, w.yaw, 0, 'YXZ'));
+  if (S.blend !== undefined && S.blend < 1) {
+    S.blend = Math.min(1, S.blend + dt / 1.1); const e = THREE.MathUtils.smootherstep(S.blend, 0, 1);
+    camera.position.lerpVectors(S.blendFrom, w.pos, e); camera.quaternion.slerpQuaternions(S.blendQ, _qd, e);
+  } else { camera.position.copy(w.pos); camera.quaternion.copy(_qd); }
+  $('spd').textContent = Math.round(moving * 3.6);
 }
 function resetCar() {
   if (S.race && S.race.phase === 'run') return;   // no teleports mid-race
@@ -1157,7 +1442,7 @@ function updateTour(dt) {
   if (t > 60) { endTour(); banner('導覽結束', '換你親自開車探索吧！', 2500); }
 }
 
-// ---------------- boost: hold Shift / ⚡ to climb three stages ----------------
+// ---------------- boost: hold Shift / to climb three stages ----------------
 // Ⅰ 加速 → Ⅱ 衝刺 → Ⅲ 極速. A stage opens once the button has been held long enough and the taxi is close to the
 // current top speed. Each one widens the lens, adds manga speed lines, wind streaks and exhaust flames;
 // reaching Ⅲ breaks the "sound barrier" with a flash and a shock ring.
@@ -1262,7 +1547,7 @@ function updateBoostFx(dt) {
     if (fx.ringT <= 0) fx.ring.visible = false;
   }
   drawSpeedLines(B);
-  // HUD: three-bar meter, ⚡ button glow, speedometer colour
+  // HUD: three-bar meter, button glow, speedometer colour
   const prog = B.lv > 0 && B.lv < 3 ? Math.min(1, B.t / BOOST.hold[B.lv]) * Math.min(1, c.v / (BOOST.max[B.lv] * 0.9)) : 0;
   const key = `${driving ? B.lv : -1}|${Math.round(prog * 20)}`;
   if (key !== fx.meter) {
@@ -1316,7 +1601,7 @@ const boardName = (leg) => (leg === 0 ? '總榜' : `第 ${leg} 單任務榜`);
 const esc = (s) => String(s).replace(/[&<>"]/g, (ch) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[ch]));
 function raceLock() {
   if (!S.race || S.race.phase === 'done') return false;
-  toast('比賽中不能用這個功能，先把餐送完吧 🛵', 1800); return true;
+  toast('比賽中不能用這個功能，先把餐送完吧 ', 1800); return true;
 }
 function startRace() {
   if (!S.ready) return;
@@ -1324,7 +1609,7 @@ function startRace() {
   ['card', 'help', 'finale', 'raceEnd', 'legUp'].forEach(id => $(id).hidden = true); S.paused = false; S.keys = {};
   if (S.mode === 'tour') endTour();
   $('intro').hidden = true; $('hud').hidden = false; if (isTouch) $('touch').hidden = false;
-  S.mode = 'drive'; $('tbMode').innerHTML = '🚁 <b>空拍</b>'; $('caption').hidden = true;
+  S.mode = 'drive'; tbSet('tbMode', 'drone', '空拍'); tbSet('tbWalk', 'walk', '街景'); $('caption').hidden = true;
   // the race runs in 2033: jump there
   S.yearTarget = S.year = 1; future.visible = true; S._futInit = false;
   const [x, z] = RACE.start, f = RACE.stops[0].at, c = S.car;
@@ -1336,13 +1621,13 @@ function startRace() {
   board.boards(RACE.id, NST).then(b => { r.boards = b; seenBoards = b; });
   $('mTimer').hidden = false; $('mTime').textContent = fmtTime(0); $('mLeg').textContent = ''; $('mTimer').classList.remove('done');
   $('mPeek').hidden = true;
-  $('tbRace').innerHTML = '✕ <b>退出比賽</b>';
+  tbSet('tbRace', 'x', '退出比賽');
   document.body.classList.add('racing');
   showRaceStop();
 }
 function showRaceStop() {
   const r = S.race, st = RACE.stops[r.stop];
-  $('mTitle').textContent = `🏁 ${RACE.title}・第 ${Math.min(r.stop + 1, NST)}/${NST} 單`;
+  $('mTitle').textContent = `${RACE.title}・第 ${Math.min(r.stop + 1, NST)}/${NST} 單`;
   $('mHint').textContent = st ? `${st.icon} ${st.item} → ${st.to}（${st.note}）` : '全部送達！';
   const prog = $('mProg'); prog.innerHTML = '';
   RACE.stops.forEach((_, k) => { const d = document.createElement('i'); if (k < r.stop) d.className = r.pend.includes(k + 1) ? 'on rec' : 'on'; prog.appendChild(d); });
@@ -1350,7 +1635,7 @@ function showRaceStop() {
 }
 const countdownLine = (r) => {
   const b = r.boards || seenBoards, top = b && b.total[0];
-  return top ? `${b.shared ? '全台' : '這台裝置'}第一：${top.i} ${fmtTime(top.ms)}・🏆 看排行榜` : `${NST} 單外送，每單都有任務榜`;
+  return top ? `${b.shared ? '全台' : '這台裝置'}第一：${top.i} ${fmtTime(top.ms)}・看排行榜` : `${NST} 單外送，每單都有任務榜`;
 };
 function updateRace(dt) {
   const r = S.race;
@@ -1358,7 +1643,7 @@ function updateRace(dt) {
     r.t += dt;
     const n = Math.ceil(-r.t);
     if (n !== r.shown && n >= 1 && n <= 3) { r.shown = n; banner(String(n), n === 3 ? (r.vs ? `挑戰 ${r.vs.i} 的 ${fmtTime(r.vs.ms)}` : countdownLine(r)) : '', 950); }
-    if (r.t >= 0) { r.phase = 'run'; r.t = 0; banner('GO!', '🛵 出發送餐！', 1100); }
+    if (r.t >= 0) { r.phase = 'run'; r.t = 0; banner('GO', '出發送餐', 1100); }
     return;
   }
   if (r.phase !== 'run') return;
@@ -1396,9 +1681,9 @@ function openLegUp(k, lms, rows, place) {
   S.paused = true; S.keys = {};
   $('luKicker').textContent = `第 ${k} 單・${st.icon} ${st.item} → ${st.to}`;
   $('luTime').textContent = fmtSec(lms);
-  $('luRank').textContent = `🏆 ${r.boards && r.boards.shared ? '全台' : '這台裝置'}任務榜第 ${place} 名${place === 1 ? '・新紀錄！' : ''}`;
+  $('luRank').textContent = `${r.boards && r.boards.shared ? '全台' : '這台裝置'}任務榜第 ${place} 名${place === 1 ? '・新紀錄！' : ''}`;
   $('luBoard').innerHTML = boardRows(rows, { i: '你', ms: lms, me: true }, 5);
-  $('luGo').textContent = `▶ 繼續送第 ${k + 1} 單（${nx.icon} ${nx.item}）`;
+  $('luGo').textContent = `繼續送第 ${k + 1} 單（${nx.icon} ${nx.item}）`;
   $('luNote').textContent = '計時已暫停。繼續的話，全部送完再把這張任務榜和總榜一起登錄。';
   $('legUp').hidden = false;
 }
@@ -1427,7 +1712,7 @@ function leaveRace(force) {
   if (!force && r.phase === 'run' && r.pend.length) { $('legUp').hidden = true; S.paused = false; endRun(false); return; }
   S.race = null; S.paused = false; document.body.classList.remove('racing');
   ['raceEnd', 'legUp'].forEach(id => $(id).hidden = true);
-  $('mTimer').hidden = true; $('mPeek').hidden = true; $('tbRace').innerHTML = '🏁 <b>外送賽</b>';
+  $('mTimer').hidden = true; $('mPeek').hidden = true; tbSet('tbRace', 'flag', '外送賽');
   S.cpIndex = Math.min(S.cpIndex, CHECKPOINTS.length - 1);
   setMission(r.prevMission === 0 ? 1 : r.prevMission);   // the race left us in 2033, so the airport mission is done
 }
@@ -1446,7 +1731,7 @@ function boardRows(rows, me, n = board.TOP) {
 // how far the taxi really went on the map (real Taipei metres, not the 1:6 speedometer)
 function driven(r) {
   let m = 0; for (let k = 1; k < r.trace.length; k++) m += Math.hypot(r.trace[k][1] - r.trace[k - 1][1], r.trace[k][2] - r.trace[k - 1][2]);
-  return m >= 1000 ? `🚕 在臺北開了 ${(m / 1000).toFixed(2)} 公里` : `🚕 在臺北開了 ${Math.round(m)} 公尺`;
+  return m >= 1000 ? `在臺北開了 ${(m / 1000).toFixed(2)} 公里` : `在臺北開了 ${Math.round(m)} 公尺`;
 }
 function regLegs(r) { return (r.full ? [0] : []).concat(r.pend); }
 function openRaceEnd() {
@@ -1454,20 +1739,20 @@ function openRaceEnd() {
   if (r.full) {
     const pb = board.personalBest(RACE.id), isPb = !pb || r.ms < pb;
     if (isPb) board.savePersonalBest(RACE.id, r.ms);
-    const notes = [isPb ? (pb ? `🎉 個人新紀錄！比之前快 ${((pb - r.ms) / 1000).toFixed(2)} 秒` : '🎉 第一次完賽！') : `個人最佳 ${fmtTime(pb)}`];
-    if (r.vs) notes.push(r.ms < r.vs.ms ? `🏆 你贏了 ${r.vs.i}（${fmtTime(r.vs.ms)}）！` : `差 ${r.vs.i} ${((r.ms - r.vs.ms) / 1000).toFixed(2)} 秒，再一次？`);
+    const notes = [isPb ? (pb ? `個人新紀錄！比之前快 ${((pb - r.ms) / 1000).toFixed(2)} 秒` : '第一次完賽！') : `個人最佳 ${fmtTime(pb)}`];
+    if (r.vs) notes.push(r.ms < r.vs.ms ? `你贏了 ${r.vs.i}（${fmtTime(r.vs.ms)}）！` : `差 ${r.vs.i} ${((r.ms - r.vs.ms) / 1000).toFixed(2)} 秒，再一次？`);
     notes.push(driven(r));
-    $('reKicker').textContent = '🏁 2033 外送王・全部送達';
+    $('reKicker').textContent = '2033 外送王・全部送達';
     $('reTime').textContent = fmtTime(r.ms);
     $('reNote').textContent = notes.join('　');
   } else {
-    $('reKicker').textContent = `🏁 2033 外送王・送了 ${done} 單`;
+    $('reKicker').textContent = `2033 外送王・送了 ${done} 單`;
     $('reTime').textContent = fmtTime(r.splits[done - 1]);
     $('reNote').textContent = `${driven(r)}　中途登錄只會上任務榜；全部送完才會上總榜。`;
   }
   $('reSplits').innerHTML = r.splits.map((_, j) => {
     const st = RACE.stops[j], rec = r.pend.includes(j + 1);
-    return `<li class="${rec ? 'rec' : ''}"><span>${st.icon} ${st.item} → ${st.to}</span><b>${rec ? '🏆 ' : ''}${fmtSec(legMs(r, j + 1))}</b></li>`;
+    return `<li class="${rec ? 'rec' : ''}"><span>${st.icon} ${st.item} → ${st.to}</span><b>${rec ? '' : ''}${fmtSec(legMs(r, j + 1))}</b></li>`;
   }).join('');
   const legs = regLegs(r);
   $('reWhat').textContent = legs.length ? `將登錄：${legs.map(boardName).join('、')}` : '';
@@ -1488,7 +1773,7 @@ function drawBoard() {
   const r = S.race, b = r.boards; if (!b) { $('reBoard').innerHTML = '<li class="empty">載入排行榜中…</li>'; return; }
   const leg = r.tab, rows = leg === 0 ? b.total : b.legs[leg - 1], st = RACE.stops[leg - 1];
   $('reAll').href = leg ? `../rank/?leg=${leg}` : '../rank/';
-  $('reBoardTitle').textContent = `🏆 ${b.shared ? '全台' : '這台裝置'}・${leg === 0 ? '總榜（5 單全送完）' : `第 ${leg} 單 ${st.icon} ${st.item}`}`;
+  $('reBoardTitle').textContent = `${b.shared ? '全台' : '這台裝置'}・${leg === 0 ? '總榜（5 單全送完）' : `第 ${leg} 單 ${st.icon} ${st.item}`}`;
   const mine = r.mine[leg];
   if (mine != null) {   // registered: highlight the entry on the refreshed board (or add it below with its rank)
     let hit = false;
@@ -1572,12 +1857,12 @@ function raceShare() {
   let url, text;
   if (r.full) {
     url = board.shareLink({ id: r.shared && rk(0) && rk(0).id, initials: who, ms: r.ms, leg: 0 });
-    text = `我在「臺北 2033 外送王」送完 5 單只花 ${fmtTime(r.ms)}${rk(0) ? `，${where}總榜第 ${rk(0).rank} 名` : ''} 🛵 你能比我快嗎？`;
+    text = `我在「臺北 2033 外送王」送完 5 單只花 ${fmtTime(r.ms)}${rk(0) ? `，${where}總榜第 ${rk(0).rank} 名` : ''} 你能比我快嗎？`;
   } else {
     const best = r.pend.map(k => ({ k, rk: rk(k) })).sort((a, b) => (a.rk ? a.rk.rank : 99) - (b.rk ? b.rk.rank : 99))[0];
     const k = best ? best.k : r.splits.length, st = RACE.stops[k - 1], ms = legMs(r, k);
     url = board.shareLink({ id: r.shared && best && best.rk && best.rk.id, initials: who, ms, leg: k });
-    text = `我在「臺北 2033 外送王」第 ${k} 單送${st.item}只花 ${fmtSec(ms)}${best && best.rk ? `，${where}任務榜第 ${best.rk.rank} 名` : ''} 🛵 你送得比我快嗎？`;
+    text = `我在「臺北 2033 外送王」第 ${k} 單送${st.item}只花 ${fmtSec(ms)}${best && best.rk ? `，${where}任務榜第 ${best.rk.rank} 名` : ''} 你送得比我快嗎？`;
   }
   const enc = encodeURIComponent;
   $('shFb').href = `https://www.facebook.com/sharer/sharer.php?u=${enc(url)}`;
@@ -1598,19 +1883,19 @@ $('luGo').onclick = () => continueRace();
 $('luReg').onclick = () => registerNow();
 $('shCopy').onclick = () => {
   const t = $('shText');
-  const done = () => { $('shCopy').textContent = '已複製 ✓'; setTimeout(() => $('shCopy').textContent = '複製', 1800); };
+  const done = () => { $('shCopy').textContent = '已複製'; setTimeout(() => $('shCopy').textContent = '複製', 1800); };
   const pick = () => { t.focus(); t.select(); $('shCopy').textContent = '已選取，請按複製'; };
   track('share', { method: 'copy' });
   try { navigator.clipboard.writeText(t.value).then(done, pick); } catch { pick(); }
 };
 
-// the boards for people who haven't played yet: on the loading screen, in the countdown and behind 🏆
+// the boards for people who haven't played yet: on the loading screen, in the countdown and behind 
 let seenBoards = null;
 const BV = { tab: 0, resume: false };
 function loadBoards() { return board.boards(RACE.id, NST).then(b => { seenBoards = b; drawIntroBoard(); if (!$('boardView').hidden) drawBoardView(); return b; }); }
 function drawIntroBoard() {
   const b = seenBoards; if (!b) return;
-  $('ibTitle').textContent = `🏆 外送王・${b.shared ? '全台' : '這台裝置'}總榜`;
+  $('ibTitle').textContent = `外送王・${b.shared ? '全台' : '這台裝置'}總榜`;
   $('ibList').innerHTML = boardRows(b.total, null, 5);
   $('introBoard').hidden = false;
 }
@@ -1620,7 +1905,7 @@ function openBoardView() {
   BV.resume = !S.paused; S.paused = true; S.keys = {};   // the race clock stops while the boards are open
   if (S.race && S.race.phase === 'run') BV.tab = S.race.stop < NST ? S.race.stop + 1 : 0;
   $('bvRace').hidden = !!(S.race && S.race.phase !== 'done');
-  $('bvOk').textContent = S.race && S.race.phase === 'run' ? '▶ 繼續比賽' : '知道了';
+  $('bvOk').textContent = S.race && S.race.phase === 'run' ? '繼續比賽' : '知道了';
   $('boardView').hidden = false; drawBoardView(); loadBoards();
 }
 function closeBoardView() { $('boardView').hidden = true; if (BV.resume) S.paused = false; BV.resume = false; S.keys = {}; }
@@ -1641,13 +1926,13 @@ $('boardView').addEventListener('click', (e) => { if (e.target === $('boardView'
 // ---------------- per-frame updates ----------------
 function updateCar(dt) {
   const k = S.keys, c = S.car;
-  // phones: the stick steers (pushing it up also drives), ⬆ is the gas, ⬇ brakes then reverses, and ⚡ on its own drives too
+  // phones: the stick steers (pushing it up also drives), is the gas, brakes then reverses, and on its own drives too
   let thr = (k.KeyW || k.ArrowUp ? 1 : 0) - (k.KeyS || k.ArrowDown ? 1 : 0) + S.joy.y + S.up - S.down;
   let st = (k.KeyA || k.ArrowLeft ? 1 : 0) - (k.KeyD || k.ArrowRight ? 1 : 0) - S.joy.x;
   thr = THREE.MathUtils.clamp(thr, -1, 1); st = THREE.MathUtils.clamp(st, -1, 1);
   if (S.boost && thr <= 0 && !S.down) thr = 1;
   if (S.race && S.race.phase !== 'run') { thr = st = 0; c.v = 0; }   // countdown / finished: wait at the line
-  // boost: holding Shift / ⚡ with the throttle on climbs the stages; letting go or braking drops back
+  // boost: holding Shift / with the throttle on climbs the stages; letting go or braking drops back
   const B = S.bst, want = (k.ShiftLeft || k.ShiftRight || S.boost) && thr > 0 && !k.Space;
   if (want && c.v > 4) {
     if (B.lv === 0) boostUp(1);
@@ -1667,7 +1952,7 @@ function updateCar(dt) {
     const nx = c.x + Math.sin(c.h) * c.v * sdt, nz = c.z + Math.cos(c.h) * c.v * sdt;
     const stuck = blocked(c.x, c.z);   // never trap the car if it is already inside a footprint
     if (!stuck && blocked(nx, nz)) {
-      if (Math.abs(c.v) > 36) { toast('碰！小心駕駛 🚧', 1200); S.bst.shake = Math.max(S.bst.shake, Math.min(1, Math.abs(c.v) / 120)); }
+      if (Math.abs(c.v) > 36) { toast('碰！小心駕駛 ', 1200); S.bst.shake = Math.max(S.bst.shake, Math.min(1, Math.abs(c.v) / 120)); }
       B.lv = 0; B.t = 0;
       c.v *= -0.25;
       if (!blocked(nx, c.z)) c.x = nx; else if (!blocked(c.x, nz)) c.z = nz;
@@ -1802,6 +2087,7 @@ function updateEnvironment(dt) {
   if (bloom) { bloom.strength = THREE.MathUtils.lerp(0.22, 0.95, n); bloom.threshold = THREE.MathUtils.lerp(0.9, 0.55, n); }
   taxi.userData.headMat.emissiveIntensity = 0.3 + n * 3; taxi.userData.signMat.emissiveIntensity = 0.6 + n * 2.5;
   if (future.userData.lampMat) future.userData.lampMat.emissiveIntensity = 0.2 + n * 2.5;
+  if (street) street.lampMat.emissiveIntensity = 0.1 + n * 3.2;
   if (future.userData.crownMat) future.userData.crownMat.emissiveIntensity = 0.6 + n * 2.2;
   // shadow camera follows the view focus
   const alt = Math.max(1, camera.position.y);
@@ -1851,7 +2137,7 @@ const radar = $('radarC').getContext('2d');
 function updateRadar() {
   const mm = minimapImgs[S.year > 0.5 ? 1 : 0]; if (!mm) return;
   const W = 260, px = S.mode === 'drive' ? S.car.x : camera.position.x, pz = S.mode === 'drive' ? S.car.z : camera.position.z;
-  const heading = S.mode === 'drive' ? S.car.h : S.drone.yaw + Math.PI;
+  const heading = S.mode === 'drive' ? S.car.h : (S.mode === 'walk' ? S.walk.yaw : S.drone.yaw) + Math.PI;
   // radius shown, in metres (the map image has ~0.13 px per metre, so stay above ~1 km to keep it sharp)
   const range = S.mode === 'drive' ? 1100 + Math.abs(S.car.v) * 15 : THREE.MathUtils.clamp(camera.position.y * 2.2, 1100, 4000);
   const k = (W / 2) / range / mm.sc;   // radar px per map-image px
@@ -1886,14 +2172,16 @@ function loop() {
     if (!S.paused) {
       if (S.mode === 'drive') updateCar(dt);
       else if (S.mode === 'drone') updateDrone(dt);
+      else if (S.mode === 'walk') updateWalk(dt);
       else if (S.mode === 'tour') updateTour(dt);
       else if (S.mode === 'cutscene') updateCutscene(dt);
       else if (S.mode === 'intro') { const a = t * 0.05; camera.position.set(R.c[0] + Math.cos(a) * 2400, 900, R.c[1] + Math.sin(a) * 2400); camera.lookAt(R.c[0], 0, R.c[1]); }
-      if (S.mode === 'drive' || S.mode === 'drone') checkMission();
+      if (S.mode === 'drive' || S.mode === 'drone' || S.mode === 'walk') checkMission();
       if (S.race) updateRace(dt);
     }
     updateEnvironment(dt);
     updateStreetTrees();
+    updatePeds(dt, t);
     updateTraffic(dt);
     updatePlanes(t);
     updateFutureLife(dt, t);
@@ -1905,6 +2193,7 @@ function loop() {
     if (checkpointMesh.visible) { checkpointMesh.rotation.y = t; checkpointMesh.scale.setScalar(1 + Math.sin(t * 4) * 0.05); }
     taxi.visible = S.mode !== 'drone' && S.mode !== 'tour' && S.mode !== 'cutscene' || S.mode === 'intro';
     updateLabels();
+    updateWhere(t);
     if (S.mode !== 'intro') updateRadar();
   }
   if (composer) composer.render(); else renderer.render(scene, camera);
@@ -1923,13 +2212,14 @@ window.__api = {
   year(y) { S.yearTarget = S.year = y; future.visible = y > 0; S._futInit = false; },
   time(m) { setTime(m); S.tod = S.todTarget; },
   drone(x, y, z, yaw, pitch) { S.mode = 'drone'; S.drone.pos.set(x, y, z); S.drone.yaw = yaw; S.drone.pitch = pitch; },
+  walk(x, z, yaw, pitch = 0) { S.mode = 'walk'; S.blend = 1; S.walk.pos.set(x, 1.7, z); S.walk.yaw = yaw; S.walk.pitch = pitch; },
   look(x, y, z, tx, ty, tz) { S.mode = 'still'; camera.position.set(x, y, z); camera.lookAt(tx, ty, tz); },
   hud(on) { $('hud').style.display = on ? '' : 'none'; $('intro').hidden = true; },
   R, zones: () => S.zoneCentres,
   mission(i, cp = 0) { S.cpIndex = cp; setMission(i); },
   target: () => currentTarget(),
   blocked: (x, z) => blocked(x, z),
-  streetTrees: () => street && { total: [...street.grid.values()].reduce((a, l) => a + l.length, 0), drawn: street.trunk.count },
+  streetTrees: () => street && { total: [...street.grid.values()].reduce((a, l) => a + l.length, 0), drawn: street.trunk.count, lamps: street.poleMesh.count, peds: street.pedMesh.count, near: street.list && street.list.length, p0: street.peds[0] },
   camera,
   wheelColor(c) { taxi.userData.wheels.forEach(w => { w.material = w.material.clone(); w.material.color.setHex(c); }); },
   cutscene() { transformCutscene(); },                 // demo recording (tools/build/record_demo.mjs)

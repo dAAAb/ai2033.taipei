@@ -30,7 +30,61 @@
     el.classList.add('in');
   }), { threshold: 0.3 }) : null;
   $$('[data-count]').forEach(el => io && io.observe(el));
-  $$('.sec .h2, .c4, .dl-card, .zone, .story-item, .timeline li, .numgrid li').forEach(el => { if (io && !reduce) { el.classList.add('reveal'); io.observe(el); } });
+  $$('.sec .h2, .sec-head .lead, .sec-head .sub, .c4, .dl-card, .zone, .story-item, .timeline li, .numgrid li, .photo-card, .gallery figure, .person, .valley-card, .quote, .facts li, .faq-list, .board-card, .compare, .video, .diagram, .bar-split, .fever, .quote-band blockquote').forEach(el => {
+    if (!io || reduce) return;
+    el.classList.add('reveal');
+    if (el.matches('.timeline li, .facts li, .quote-band blockquote')) el.classList.add('from-left');
+    if (el.matches('.compare, .video, .diagram')) el.classList.add('zoom');
+    // siblings come in one after another
+    const sibs = el.parentElement ? [...el.parentElement.children].filter(c => c.tagName === el.tagName) : [];
+    el.style.setProperty('--d', Math.min(0.5, Math.max(0, sibs.indexOf(el)) * 0.08) + 's');
+    io.observe(el);
+  });
+
+  // scroll progress bar, header state, nav highlight for the section in view, and a slow parallax on photo bands
+  const bar = document.createElement('div'); bar.className = 'progress'; bar.setAttribute('aria-hidden', 'true'); document.body.appendChild(bar);
+  const top = $('.top'), bands = $$('.quote-band');
+  const links = $$('.nav a[href^="#"]'), secs = links.map(a => $(a.getAttribute('href'))).filter(Boolean);
+  let ticking = false;
+  const onScroll = () => {
+    ticking = false;
+    const y = scrollY, h = document.documentElement.scrollHeight - innerHeight;
+    bar.style.transform = `scaleX(${h > 0 ? y / h : 0})`;
+    if (top) top.classList.toggle('scrolled', y > 40);
+    let cur = null; for (const s of secs) if (s.getBoundingClientRect().top < innerHeight * 0.35) cur = s;
+    links.forEach(a => a.classList.toggle('active', !!cur && a.getAttribute('href') === '#' + cur.id));
+    if (!reduce) bands.forEach(b => { const r = b.getBoundingClientRect(); if (r.bottom > 0 && r.top < innerHeight) b.style.backgroundPositionY = `calc(22% + ${((r.top + r.height / 2 - innerHeight / 2) * -0.12).toFixed(1)}px)`; });
+  };
+  addEventListener('scroll', () => { if (!ticking) { ticking = true; requestAnimationFrame(onScroll); } }, { passive: true });
+  onScroll();
+
+  // 3D city in a full-screen layer: every link into 3d/ opens it here, the back button and Esc close it.
+  // The iframe stays loaded after closing, so going back in is instant.
+  const p3 = $('#play3d'), frame = $('#play3dFrame');
+  const open3d = (href, push = true) => {
+    const src = new URL(href, location.href).href;
+    if (frame.src !== src) frame.src = src;
+    p3.hidden = false; document.body.classList.add('in3d');
+    if (push) history.pushState({ p3d: 1 }, '', /[?&]race\b/.test(src) ? '#race' : '#3d');
+    setTimeout(() => frame.focus(), 50);
+  };
+  const close3d = () => {
+    if (p3.hidden) return;
+    p3.hidden = true; document.body.classList.remove('in3d');
+    if (history.state && history.state.p3d) history.back();
+    // the game can add history entries of its own (race links), so make sure the address no longer says #3d / #race
+    setTimeout(() => { if (p3.hidden && /^#(3d|race)$/.test(location.hash)) history.replaceState(null, '', location.pathname + location.search); }, 400);
+  };
+  document.addEventListener('click', (e) => {
+    const a = e.target.closest('a[href^="3d/"]');
+    if (!a || e.ctrlKey || e.metaKey || e.shiftKey) return;   // let modified clicks open a real tab
+    e.preventDefault(); open3d(a.getAttribute('href'));
+  });
+  $('#play3dClose').addEventListener('click', close3d);
+  addEventListener('keydown', (e) => { if (e.key === 'Escape') close3d(); });
+  addEventListener('message', (e) => { if (e.origin === location.origin && e.data && e.data.type === 'close3d') close3d(); });
+  addEventListener('popstate', () => { if (!p3.hidden && !(history.state && history.state.p3d)) { p3.hidden = true; document.body.classList.remove('in3d'); } });
+  if (location.hash === '#3d' || location.hash === '#race') open3d(location.hash === '#race' ? '3d/index.html?race' : '3d/index.html', false);
 
   // zone tabs
   const Z = {
@@ -42,7 +96,9 @@
   const panel = $('#zonePanel');
   const showZone = (k) => {
     const z = Z[k];
+    panel.style.animation = 'none'; void panel.offsetWidth; panel.style.animation = '';   // replay the fade on every switch
     panel.innerHTML = `<img src="${z.img}" alt="${z.title}示意圖" loading="lazy" onerror="this.style.visibility='hidden'"><div><div class="zbig">${z.big}</div><h3>${z.title}</h3><p>${z.body}</p></div>`;
+    $$('.bs').forEach(b => b.style.opacity = b.classList.contains(k) || k === 'urban' ? '1' : '.45');
     $$('.zone').forEach(b => { const on = b.dataset.zone === k; b.classList.toggle('active', on); b.setAttribute('aria-selected', on); });
   };
   $$('.zone').forEach(b => b.addEventListener('click', () => showZone(b.dataset.zone)));
@@ -65,6 +121,6 @@
   const sb = $('#btnShare');
   if (sb) sb.addEventListener('click', async () => {
     const data = { title: document.title, text: 'AI黃金世紀，從臺北開始！松機變身 300 公頃臺北AI園區', url: location.href.split('#')[0] };
-    try { if (navigator.share) await navigator.share(data); else { await navigator.clipboard.writeText(data.url); sb.textContent = '✅ 已複製連結'; } } catch (e) { }
+    try { if (navigator.share) await navigator.share(data); else { await navigator.clipboard.writeText(data.url); sb.textContent = '已複製連結'; } } catch (e) { }
   });
 })();

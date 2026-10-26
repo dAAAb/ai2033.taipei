@@ -17,27 +17,28 @@
 <meta property="og:url" content="https://ai2033.taipei/">
 <meta name="twitter:card" content="summary_large_image">
 <meta name="twitter:image" content="https://ai2033.taipei/assets/og.jpg">
-<meta name="theme-color" content="#0b1730">
-<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>✨</text></svg>">
+<meta name="theme-color" content="#14171c">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'><rect width='64' height='64' rx='14' fill='%2314171c'/><circle cx='32' cy='32' r='12' fill='%23e0a91b'/></svg>">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700;900&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=Noto+Sans+TC:wght@400;500;700;900&family=Noto+Serif+TC:wght@600;900&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="assets/css/site.css">
 <script src="assets/js/ga.js"></script>
 </head>
 <body>
 <a class="skip" href="#main">跳到主要內容</a>
+<div class="grain" aria-hidden="true"></div>
 
 <header class="top" id="top">
   <div class="wrap top-in">
-    <a class="brand" href="#hero" aria-label="回到頂端"><span class="dot"></span>AI黃金世紀</a>
+    <a class="brand" href="#hero" aria-label="回到頂端"><span class="brand-mark" aria-hidden="true"></span><span class="brand-name">臺北 2033</span><span class="brand-sub">AI GOLDEN CENTURY</span></a>
     <nav class="nav" aria-label="主選單">
       <a href="#board">排行榜</a>
       <a href="#why">為什麼</a>
       <a href="#plan">300公頃</a>
       <a href="#compare">前後對比</a>
       <a href="#traffic">交通</a>
-      <a href="#valley">大台北新矽谷</a>
+      <a href="#valley">新矽谷</a>
       <a href="#faq">問答</a>
       <a href="#download">下載</a>
     </nav>
@@ -47,7 +48,7 @@
         <button data-fs="0" aria-label="預設字體">A</button>
         <button data-fs="1" aria-label="字體放大">A＋</button>
       </div>
-      <a class="btn sm gold" href="3d/index.html">🚕 3D 體驗</a>
+      <a class="btn sm solid" href="3d/index.html">進入 3D</a>
     </div>
   </div>
 </header>
@@ -58,32 +59,34 @@
   <div class="hero-bg" aria-hidden="true"></div>
   <div class="wrap hero-in">
     <div class="hero-text">
-      <p class="eyebrow">非官方整理｜2026.10.08 臺北市政府記者會</p>
-      <h1>AI黃金世紀，<br><span class="gold">從臺北開始！</span></h1>
-      <p class="hero-lead">臺北市長<strong>蔣萬安</strong>宣布：規劃<strong>遷移松山機場</strong>，整合機場及周邊 <strong class="num">300</strong> 公頃，打造全新<strong>「臺北AI園區」</strong>。</p>
-      <div class="equations">
-        <div class="eq"><span>大台北</span><i>=</i><span class="gold">亞洲新矽谷</span></div>
-        <div class="eq"><span>蔣萬安 ＋ 李四川</span><i>=</i><span class="gold">大台北新矽谷</span></div>
-      </div>
+      <p class="eyebrow"><span>非官方整理</span><span>2026.10.08 臺北市政府記者會</span></p>
+      <h1>AI黃金世紀，<br><em>從臺北開始。</em></h1>
+      <p class="hero-lead">臺北市長<strong>蔣萬安</strong>宣布：規劃<strong>遷移松山機場</strong>，整合機場及周邊 <strong>300</strong> 公頃，打造全新<strong>「臺北AI園區」</strong>。</p>
+      <dl class="equations">
+        <div class="eq"><dt>大台北</dt><dd>亞洲新矽谷</dd></div>
+        <div class="eq"><dt>蔣萬安 ＋ 李四川</dt><dd>大台北新矽谷</dd></div>
+      </dl>
       <div class="cta">
-        <a class="btn gold xl" href="3d/index.html">🚕 進入 3D 臺北：開車看松機變身</a>
-        <a class="btn xl" href="3d/index.html?race">🏁 2033 外送王：比誰送得快</a>
-        <a class="btn xl" href="rank/">🏆 外送王排行榜</a>
-        <a class="btn xl" href="#video">▶ 看記者會影片</a>
-        <a class="btn xl" href="transcript/index.html">📜 記者會文字整理</a>
+        <a class="btn xl solid" href="3d/index.html">進入 3D 臺北<svg class="arr" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg></a>
+        <a class="btn xl line" href="3d/index.html?race">2033 外送王</a>
       </div>
+      <ul class="hero-links">
+        <li><a href="rank/">外送王排行榜</a></li>
+        <li><a href="#video">記者會影片</a></li>
+        <li><a href="transcript/index.html">記者會文字整理</a></li>
+      </ul>
     </div>
     <figure class="hero-photo">
       <img src="assets/photos/chiang-portrait.jpg" alt="臺北市長蔣萬安正式肖像" width="1280" height="1600" fetchpriority="high">
-      <figcaption>臺北市長 蔣萬安</figcaption>
+      <figcaption><span>臺北市長</span>蔣萬安</figcaption>
     </figure>
   </div>
   <div class="wrap">
     <ul class="hero-stats" aria-label="重點數字">
-      <li><b data-count="300">300</b><span>公頃 臺北AI園區</span></li>
-      <li><b data-count="12" data-suffix="兆">12兆</b><span>市府估算產值</span></li>
-      <li><b data-count="6.5" data-suffix="萬" data-dec="1">6.5萬</b><span>就業人口</span></li>
-      <li><b data-count="110">110</b><span>公頃 中央公園</span></li>
+      <li><span class="lbl">園區面積</span><b data-count="300">300</b><span class="unit">公頃 臺北AI園區</span></li>
+      <li><span class="lbl">預估產值</span><b data-count="12" data-suffix="兆">12兆</b><span class="unit">新臺幣，市府估算</span></li>
+      <li><span class="lbl">就業人口</span><b data-count="6.5" data-suffix="萬" data-dec="1">6.5萬</b><span class="unit">AI 產業聚落</span></li>
+      <li><span class="lbl">中央公園</span><b data-count="110">110</b><span class="unit">公頃，大安森林公園 4 倍</span></li>
     </ul>
   </div>
 </section>
@@ -92,13 +95,13 @@
 <section class="sec board-sec" id="board" aria-labelledby="boardH">
   <div class="wrap board-in">
     <div class="board-text">
-      <p class="kicker">2033 外送王・全台即時排行榜</p>
+      <p class="kicker"><span class="no">01</span>2033 外送王・全台即時排行榜</p>
       <h2 class="h2" id="boardH">開小黃送 5 單，<span class="mark">誰最快？</span></h2>
       <p class="lead">在 2033 年的臺北AI園區送鮮奶、便當、珍奶、鳳梨酥、鹹酥雞。總榜比 5 單全送完的時間，每一單另有自己的任務榜。</p>
-      <p class="board-cta"><a class="btn gold xl" href="3d/index.html?race">🏁 我也要挑戰</a><a class="btn xl" href="rank/">🏆 看完整排行榜</a></p>
+      <p class="board-cta"><a class="btn xl solid" href="3d/index.html?race">我也要挑戰<svg class="arr" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg></a><a class="tlink" href="rank/">看完整排行榜</a></p>
     </div>
     <div class="board-card">
-      <h3>總榜 前 5 名</h3>
+      <div class="bc-head"><h3>總榜 前 5 名</h3><span class="livedot"><i></i>即時</span></div>
       <ol class="hb-list" id="hbTotal"><li class="empty">載入排行榜中…</li></ol>
       <h3>各單最快</h3>
       <ul class="hb-legs" id="hbLegs"></ul>
@@ -112,13 +115,13 @@
   import { RACE } from './3d/js/content.js';
   const $ = (id) => document.getElementById(id), NST = RACE.stops.length;
   const fmt = (ms) => (ms >= 60000 ? `${Math.floor(ms / 60000)}:${((ms % 60000) / 1000).toFixed(2).padStart(5, '0')}` : `${(ms / 1000).toFixed(2)} 秒`);
-  const row = (r, k) => `<li><span class="rk">${k + 1}</span><b>${r.i}</b><span class="t">${fmt(r.ms)}</span></li>`;
+  const row = (r, k) => `<li><span class="rk">${String(k + 1).padStart(2, '0')}</span><b>${r.i}</b><span class="t">${fmt(r.ms)}</span></li>`;
   async function load() {
     const b = await board.boards(RACE.id, NST, 5);
-    $('hbTotal').innerHTML = b.total.length ? b.total.map(row).join('') : '<li class="empty">還沒有人送完 5 單，搶第一！</li>';
+    $('hbTotal').innerHTML = b.total.length ? b.total.map(row).join('') : '<li class="empty">還沒有人送完 5 單，搶第一。</li>';
     $('hbLegs').innerHTML = RACE.stops.map((st, k) => {
       const top = b.legs[k][0];
-      return `<li><a href="rank/?leg=${k + 1}"><span>${st.icon} 第 ${k + 1} 單 ${st.item}</span>${top ? `<b>${top.i}</b><span class="t">${fmt(top.ms)}</span>` : '<span class="t">還沒有人</span>'}</a></li>`;
+      return `<li><a href="rank/?leg=${k + 1}"><span><i>第 ${k + 1} 單</i>${st.item}</span>${top ? `<b>${top.i}</b><span class="t">${fmt(top.ms)}</span>` : '<span class="t">還沒有人</span>'}</a></li>`;
     }).join('');
     $('hbSrc').textContent = b.shared ? `全台即時・更新於 ${new Date().toLocaleTimeString('zh-TW', { hour12: false })}` : '暫時連不上全台排行榜，先顯示這台裝置的紀錄';
   }
@@ -127,65 +130,77 @@
 </script>
 
 <!-- VIDEO -->
-<section class="sec dark" id="video">
+<section class="sec" id="video">
   <div class="wrap">
-    <h2 class="h2">記者會完整版影片</h2>
-    <p class="sub">「AI黃金世紀，就從臺北開始｜20261008 發布會完整版」（蔣萬安 YouTube 頻道）</p>
+    <div class="sec-head">
+      <p class="kicker"><span class="no">02</span>記者會</p>
+      <h2 class="h2">記者會完整版影片</h2>
+      <p class="sub">「AI黃金世紀，就從臺北開始｜20261008 發布會完整版」，蔣萬安 YouTube 頻道。</p>
+    </div>
     <div class="video">
       <iframe id="yt" title="AI黃金世紀，就從臺北開始 20261008 發布會完整版" loading="lazy" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" allowfullscreen data-src="https://www.youtube-nocookie.com/embed/ircGbXWHRbQ?rel=0"></iframe>
       <button class="video-cover" id="ytCover" aria-label="播放記者會影片">
         <img src="assets/photos/chiang-council.jpg" alt="">
-        <span class="play">▶</span><span class="vlabel">點我播放記者會</span>
+        <span class="play" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M8 5.5v13l11-6.5z"/></svg></span><span class="vlabel">播放記者會<small>完整版</small></span>
       </button>
     </div>
-    <p class="center"><a class="btn" href="https://youtu.be/ircGbXWHRbQ" target="_blank" rel="noopener">在 YouTube 開啟 ↗</a> <a class="btn" href="transcript/index.html">📜 看文字整理</a></p>
+    <p class="row-links"><a class="tlink" href="https://youtu.be/ircGbXWHRbQ" target="_blank" rel="noopener">在 YouTube 開啟</a><a class="tlink" href="transcript/index.html">看文字整理</a></p>
   </div>
 </section>
 
 <!-- WHY -->
 <section class="sec" id="why">
   <div class="wrap">
-    <p class="kicker">為什麼是現在？</p>
-    <h2 class="h2">輝達來了，AI 世紀也來了。<br>臺北最缺的，是<span class="mark">腹地</span>。</h2>
-    <div class="grid2">
+    <div class="sec-head">
+      <p class="kicker"><span class="no">03</span>為什麼是現在？</p>
+      <h2 class="h2">輝達來了，AI 世紀也來了。<br>臺北最缺的，是<span class="mark">腹地</span>。</h2>
+    </div>
+    <div class="grid2 why-grid">
       <div>
         <p class="big">今年初，「臺北隊」成功讓<strong>輝達選擇臺北、落腳北士科</strong>。蔣萬安說：輝達是臺北打開 AI 時代的鑰匙，更是世界認識臺北、認識臺灣的機會。</p>
-        <ul class="facts">
-          <li><b>北士科</b>：只剩 T3、T4、T12，已<strong>沒有超過 1 公頃</strong>的大面積產業用地</li>
-          <li><b>內湖科技園區</b>：緯穎、緯創蓋總部後，已沒有足夠面積的產業用地</li>
-          <li><b>南港軟體園區</b>：也已經滿了</li>
-          <li><b>洲美</b>：已規劃為北士科二期，但面對湧來的 AI 浪潮仍遠遠不夠</li>
-        </ul>
-        <blockquote class="quote">「沒有腹地，『亞太AI首都』就只是空談。」<cite>— 臺北市長 蔣萬安</cite></blockquote>
+        <ol class="facts">
+          <li><b>北士科</b>只剩 T3、T4、T12，已<strong>沒有超過 1 公頃</strong>的大面積產業用地</li>
+          <li><b>內湖科技園區</b>緯穎、緯創蓋總部後，已沒有足夠面積的產業用地</li>
+          <li><b>南港軟體園區</b>也已經滿了</li>
+          <li><b>洲美</b>已規劃為北士科二期，但面對湧來的 AI 浪潮仍遠遠不夠</li>
+        </ol>
       </div>
       <figure class="photo-card">
         <img src="assets/photos/chiang-speech.jpg" alt="蔣萬安於市政場合致詞" loading="lazy">
         <figcaption>「歷史告訴我們，必須在機會到來的時候，當機立斷、做出關鍵決定。」</figcaption>
       </figure>
     </div>
+    <blockquote class="quote">「沒有腹地，『亞太AI首都』就只是空談。」<cite>臺北市長 蔣萬安</cite></blockquote>
     <div class="story">
       <div class="story-item">
         <span class="year">1970s</span>
         <p>新竹科學園區與半導體一度飽受質疑，五十年後孕育出台積電與「護國群山」。</p>
       </div>
-      <div class="story-arrow" aria-hidden="true">➜</div>
       <div class="story-item now">
         <span class="year">2026</span>
         <p>半導體正在走出去，<strong>世界正在走進臺北</strong>。產業要持續成長，就必須找到下一個空間。</p>
       </div>
     </div>
     <div class="fever">
-      <p>蔣萬安在記者會上提到：他的好友、立委<strong>葛如鈞博士</strong>近期走訪美國矽谷，分享當地出現 <span class="pill">Taiwan Fever</span> <span class="pill">Taipei Fever</span> 的現象。隨著輝達來到臺北，國際企業更希望來臺北發展，人才、技術與資金加速匯聚。</p>
+      <p class="fever-tags"><span>Taiwan Fever</span><span>Taipei Fever</span></p>
+      <p>蔣萬安在記者會上提到：他的好友、立委<strong>葛如鈞博士</strong>近期走訪美國矽谷，分享當地出現的現象。隨著輝達來到臺北，國際企業更希望來臺北發展，人才、技術與資金加速匯聚。</p>
     </div>
   </div>
 </section>
 
 <!-- PLAN -->
-<section class="sec light" id="plan">
+<section class="sec tint" id="plan">
   <div class="wrap">
-    <p class="kicker">打開松機 300 公頃</p>
-    <h2 class="h2">一塊地，完成臺北產業聚落<br>「最後也最重要的一塊拼圖」</h2>
-    <p class="lead">向北對接<strong>北士科</strong>、向東串聯<strong>內科與南軟</strong>、向南銜接<strong>市中心</strong>。</p>
+    <div class="sec-head">
+      <p class="kicker"><span class="no">04</span>打開松機 300 公頃</p>
+      <h2 class="h2">一塊地，完成臺北產業聚落<br>「最後也最重要的一塊拼圖」</h2>
+      <p class="lead">向北對接<strong>北士科</strong>、向東串聯<strong>內科與南軟</strong>、向南銜接<strong>市中心</strong>。</p>
+    </div>
+    <div class="bar-split" aria-label="300 公頃配置比例">
+      <span class="bs ai" style="flex:100"><i>100</i>AI 產業</span>
+      <span class="bs live" style="flex:90"><i>90</i>生活聚落</span>
+      <span class="bs park" style="flex:110"><i>110</i>中央公園</span>
+    </div>
     <div class="zones" role="tablist" aria-label="園區分區">
       <button class="zone z-ai active" role="tab" aria-selected="true" data-zone="ai"><b>100</b><span>公頃</span><em>AI 產業聚落</em></button>
       <button class="zone z-live" role="tab" aria-selected="false" data-zone="live"><b>90</b><span>公頃</span><em>國際永續生活聚落</em></button>
@@ -193,54 +208,56 @@
       <button class="zone z-urban" role="tab" aria-selected="false" data-zone="urban"><b>570</b><span>公頃</span><em>航高解禁都更</em></button>
     </div>
     <div class="zone-panel" id="zonePanel" role="tabpanel" aria-live="polite"></div>
-    <div class="bar-split" aria-label="300 公頃配置比例">
-      <span class="bs ai" style="flex:100">AI 產業 100</span>
-      <span class="bs live" style="flex:90">生活 90</span>
-      <span class="bs park" style="flex:110">中央公園 110</span>
-    </div>
-    <p class="note">＊市府尚未公布正式配置圖。本站地圖與 3D 為依新聞稿文字（公園位於松機北半側、AI 園區位於松南營區及松機南側）所繪之示意。</p>
+    <p class="note">市府尚未公布正式配置圖。本站地圖與 3D 為依新聞稿文字（公園位於松機北半側、AI 園區位於松南營區及松機南側）所繪之示意。</p>
   </div>
 </section>
 
 <!-- COMPARE -->
 <section class="sec dark" id="compare">
   <div class="wrap">
-    <p class="kicker">2026 ⇄ 2033</p>
-    <h2 class="h2">拖拉看看：松山機場變身臺北AI園區</h2>
+    <div class="sec-head">
+      <p class="kicker"><span class="no">05</span>2026 / 2033</p>
+      <h2 class="h2">拖拉看看：松山機場變身臺北AI園區</h2>
+    </div>
     <div class="compare" id="compareBox" aria-label="2026 與 2033 對比圖，可左右拖曳">
       <img class="after" src="assets/renders/aerial-2033.jpg" alt="2033 年示意：110 公頃中央公園與 AI 園區" loading="lazy">
       <div class="before-wrap"><img class="before" src="assets/renders/aerial-2026.jpg" alt="2026 年：松山機場" loading="lazy"></div>
-      <span class="tag l">2026 松山機場</span><span class="tag r">2033 臺北AI園區</span>
+      <span class="tag l">2026　松山機場</span><span class="tag r">2033　臺北AI園區</span>
       <input type="range" min="0" max="100" value="50" id="compareRange" aria-label="拖曳比較 2026 與 2033">
-      <div class="handle" aria-hidden="true"><span>⇆</span></div>
+      <div class="handle" aria-hidden="true"><span><svg viewBox="0 0 24 24"><path d="M9 6l-6 6 6 6M15 6l6 6-6 6"/></svg></span></div>
     </div>
     <div class="gallery">
-      <figure><img src="assets/renders/park-2033.jpg" alt="110 公頃中央公園示意" loading="lazy"><figcaption>110 公頃中央公園：臺北的「綠色脊柱」</figcaption></figure>
-      <figure><img src="assets/renders/ai-2033.jpg" alt="AI 產業聚落示意" loading="lazy"><figcaption>100 公頃 AI 產業聚落：預估 12 兆產值</figcaption></figure>
-      <figure><img src="assets/renders/night-2033.jpg" alt="臺北AI園區夜景示意" loading="lazy"><figcaption>AI黃金世紀的夜晚</figcaption></figure>
+      <figure class="g-big"><img src="assets/renders/park-2033.jpg" alt="110 公頃中央公園示意" loading="lazy"><figcaption><span>01</span>110 公頃中央公園：臺北的「綠色脊柱」</figcaption></figure>
+      <figure><img src="assets/renders/ai-2033.jpg" alt="AI 產業聚落示意" loading="lazy"><figcaption><span>02</span>100 公頃 AI 產業聚落：預估 12 兆產值</figcaption></figure>
+      <figure><img src="assets/renders/night-2033.jpg" alt="臺北AI園區夜景示意" loading="lazy"><figcaption><span>03</span>AI黃金世紀的夜晚</figcaption></figure>
     </div>
-    <p class="center"><a class="btn gold xl" href="3d/index.html">🚕 自己開車進去看 →</a><a class="btn xl race-cta" href="3d/index.html?race">🏁 挑戰 2033 外送王</a><a class="btn xl" href="rank/">🏆 看排行榜</a></p>
+    <p class="row-links"><a class="btn xl solid" href="3d/index.html">自己開車進去看<svg class="arr" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg></a><a class="tlink" href="3d/index.html?race">挑戰 2033 外送王</a><a class="tlink" href="rank/">看排行榜</a></p>
   </div>
 </section>
 
 <!-- FOUR REVOLUTIONS -->
 <section class="sec" id="four">
   <div class="wrap">
-    <p class="kicker">四大革命性創生</p>
-    <h2 class="h2">產業・都市・交通・水綠，一次打開</h2>
+    <div class="sec-head">
+      <p class="kicker"><span class="no">06</span>四大革命性創生</p>
+      <h2 class="h2">產業・都市・交通・水綠，一次打開</h2>
+    </div>
     <div class="cards4">
-      <article class="c4"><span class="ico">🤖</span><h3>產業</h3><p>100 公頃 AI 產業聚落。以內科每公頃 <b>360 億</b>元產值為基數，推估 <b>12 兆元</b>產值、<b>6.5 萬</b>就業人口。從晶片到軟體應用，產業鏈上有 <b>200 家</b>臺灣企業。</p></article>
-      <article class="c4"><span class="ico">🏙️</span><h3>都市發展</h3><p>90 公頃國際永續生活聚落，可容納 <b>3.5 萬</b>人；松機遷移解開 <b>570 公頃</b>航高禁限建都更地區，可增加約 <b>15 萬戶</b>居住單元。</p></article>
-      <article class="c4"><span class="ico">🚇</span><h3>交通</h3><p>全新<b>「臺北 XY 軸捷運」</b>；基湖路、敬業三路、北安路新增<b>跨河廊道</b>；民族東路向東串聯大直、內湖，改善內湖交通。</p></article>
-      <article class="c4"><span class="ico">🌳</span><h3>水綠</h3><p><b>110 公頃</b>中央公園，和倫敦海德公園差不多大，約為代代木公園 <b>2 倍</b>、大安森林公園 <b>4 倍</b>；結合<b>基隆河大直段</b>河岸再造。</p></article>
+      <article class="c4"><span class="ico">I</span><h3>產業</h3><p>100 公頃 AI 產業聚落。以內科每公頃 <b>360 億</b>元產值為基數，推估 <b>12 兆元</b>產值、<b>6.5 萬</b>就業人口。從晶片到軟體應用，產業鏈上有 <b>200 家</b>臺灣企業。</p></article>
+      <article class="c4"><span class="ico">II</span><h3>都市發展</h3><p>90 公頃國際永續生活聚落，可容納 <b>3.5 萬</b>人；松機遷移解開 <b>570 公頃</b>航高禁限建都更地區，可增加約 <b>15 萬戶</b>居住單元。</p></article>
+      <article class="c4"><span class="ico">III</span><h3>交通</h3><p>全新<b>「臺北 XY 軸捷運」</b>；基湖路、敬業三路、北安路新增<b>跨河廊道</b>；民族東路向東串聯大直、內湖，改善內湖交通。</p></article>
+      <article class="c4"><span class="ico">IV</span><h3>水綠</h3><p><b>110 公頃</b>中央公園，和倫敦海德公園差不多大，約為代代木公園 <b>2 倍</b>、大安森林公園 <b>4 倍</b>；結合<b>基隆河大直段</b>河岸再造。</p></article>
     </div>
   </div>
 </section>
 
 <!-- NUMBERS -->
-<section class="sec gold-bg" id="numbers">
+<section class="sec ink" id="numbers">
   <div class="wrap">
-    <h2 class="h2 dark-ink">一次看懂數字</h2>
+    <div class="sec-head">
+      <p class="kicker"><span class="no">07</span>數據</p>
+      <h2 class="h2">一次看懂數字</h2>
+    </div>
     <ul class="numgrid">
       <li><b data-count="300">300</b><span>公頃 園區總面積</span></li>
       <li><b data-count="100">100</b><span>公頃 AI 產業聚落</span></li>
@@ -259,52 +276,58 @@
 </section>
 
 <!-- TRAFFIC -->
-<section class="sec light" id="traffic">
+<section class="sec" id="traffic">
   <div class="wrap">
-    <p class="kicker">打通臺北交通的任督二脈</p>
-    <h2 class="h2">XY 軸捷運＋跨河廊道</h2>
+    <div class="sec-head">
+      <p class="kicker"><span class="no">08</span>打通臺北交通的任督二脈</p>
+      <h2 class="h2">XY 軸捷運＋跨河廊道</h2>
+    </div>
     <div class="grid2">
       <figure class="diagram">
         <svg viewBox="0 0 600 520" role="img" aria-labelledby="xyT xyD">
           <title id="xyT">臺北 XY 軸捷運示意圖</title>
           <desc id="xyD">X 軸東西向：士林大同線、圓山、松山機場、內湖。Y 軸南北向：松山機場、國父紀念館、大安、公館、中和。</desc>
-          <rect x="0" y="0" width="600" height="520" rx="24" fill="#f3f6fa"/>
-          <path d="M40 150 C140 150 180 150 300 150 S480 120 560 90" stroke="#1aa7e8" stroke-width="16" fill="none" stroke-linecap="round"/>
-          <path d="M300 150 L300 230 L285 320 L260 400 L230 480" stroke="#e8357f" stroke-width="16" fill="none" stroke-linecap="round"/>
-          <g font-size="22" font-weight="700" fill="#0b1730">
-            <circle cx="70" cy="150" r="13" fill="#fff" stroke="#1aa7e8" stroke-width="6"/><text x="40" y="128">士林大同線</text>
-            <circle cx="170" cy="150" r="13" fill="#fff" stroke="#1aa7e8" stroke-width="6"/><text x="150" y="190">圓山</text>
-            <circle cx="300" cy="150" r="22" fill="#ffc83d" stroke="#0b1730" stroke-width="6"/><text x="320" y="190">松山機場（臺北AI園區）</text>
-            <circle cx="520" cy="101" r="13" fill="#fff" stroke="#1aa7e8" stroke-width="6"/><text x="470" y="75">內湖</text>
-            <circle cx="300" cy="230" r="13" fill="#fff" stroke="#e8357f" stroke-width="6"/><text x="320" y="238">國父紀念館</text>
-            <circle cx="285" cy="320" r="13" fill="#fff" stroke="#e8357f" stroke-width="6"/><text x="305" y="328">大安</text>
-            <circle cx="260" cy="400" r="13" fill="#fff" stroke="#e8357f" stroke-width="6"/><text x="280" y="408">公館</text>
-            <circle cx="230" cy="480" r="13" fill="#fff" stroke="#e8357f" stroke-width="6"/><text x="250" y="488">中和</text>
+          <defs><pattern id="gridp" width="30" height="30" patternUnits="userSpaceOnUse"><path d="M30 0H0V30" fill="none" stroke="#e3ddd0" stroke-width="1"/></pattern></defs>
+          <rect x="0" y="0" width="600" height="520" fill="#fbf9f4"/>
+          <rect x="0" y="0" width="600" height="520" fill="url(#gridp)"/>
+          <path d="M40 150 C140 150 180 150 300 150 S480 120 560 90" stroke="#d09a12" stroke-width="14" fill="none" stroke-linecap="round"/>
+          <path d="M300 150 L300 230 L285 320 L260 400 L230 480" stroke="#b5452a" stroke-width="14" fill="none" stroke-linecap="round"/>
+          <g font-size="21" font-weight="700" fill="#14171c">
+            <circle cx="70" cy="150" r="11" fill="#fff" stroke="#d09a12" stroke-width="5"/><text x="40" y="128">士林大同線</text>
+            <circle cx="170" cy="150" r="11" fill="#fff" stroke="#d09a12" stroke-width="5"/><text x="150" y="190">圓山</text>
+            <circle cx="300" cy="150" r="20" fill="#14171c" stroke="#fbf9f4" stroke-width="5"/><text x="322" y="190">松山機場（臺北AI園區）</text>
+            <circle cx="520" cy="101" r="11" fill="#fff" stroke="#d09a12" stroke-width="5"/><text x="470" y="75">內湖</text>
+            <circle cx="300" cy="230" r="11" fill="#fff" stroke="#b5452a" stroke-width="5"/><text x="320" y="238">國父紀念館</text>
+            <circle cx="285" cy="320" r="11" fill="#fff" stroke="#b5452a" stroke-width="5"/><text x="305" y="328">大安</text>
+            <circle cx="260" cy="400" r="11" fill="#fff" stroke="#b5452a" stroke-width="5"/><text x="280" y="408">公館</text>
+            <circle cx="230" cy="480" r="11" fill="#fff" stroke="#b5452a" stroke-width="5"/><text x="250" y="488">中和</text>
           </g>
-          <g font-size="26" font-weight="900"><text x="30" y="60" fill="#1aa7e8">X 軸（東西向）</text><text x="30" y="96" fill="#e8357f">Y 軸（南北向）</text></g>
+          <g font-size="22" font-weight="900"><text x="30" y="60" fill="#a87a0a">X 軸　東西向</text><text x="30" y="94" fill="#b5452a">Y 軸　南北向</text></g>
         </svg>
         <figcaption>示意圖，路線未定案。</figcaption>
       </figure>
-      <div>
-        <h3 class="h3">🚇 臺北 XY 軸捷運</h3>
-        <p class="big"><b class="pink">Y 軸</b>：從松山機場往南，串聯國父紀念館、大安、公館、中和，促進雙北跨市通勤。</p>
-        <p class="big"><b class="blue">X 軸</b>：串聯士林大同線、圓山、松山機場、內湖，連起<strong>北士科、臺北AI園區、內科、南軟</strong>四大產業園區。</p>
-        <h3 class="h3">🌉 跨河廊道</h3>
+      <div class="traffic-text">
+        <h3 class="h3">臺北 XY 軸捷運</h3>
+        <p class="big"><b class="c-y">Y 軸</b>從松山機場往南，串聯國父紀念館、大安、公館、中和，促進雙北跨市通勤。</p>
+        <p class="big"><b class="c-x">X 軸</b>串聯士林大同線、圓山、松山機場、內湖，連起<strong>北士科、臺北AI園區、內科、南軟</strong>四大產業園區。</p>
+        <h3 class="h3">跨河廊道</h3>
         <p class="big">松機和基隆河把中山、松山、內湖切開，內科與大直每天數十萬通勤人口靠大直橋、民權大橋、麥帥一二橋。松機遷移後：</p>
-        <ul class="facts">
-          <li><b>基湖路、敬業三路、北安路</b>：新增跨河廊道穿越松機腹地，銜接松山、信義</li>
-          <li><b>民族東路</b>：向東穿越機場基地串聯大直、內湖；向西接建國、新生高架</li>
-        </ul>
+        <ol class="facts">
+          <li><b>基湖路、敬業三路、北安路</b>新增跨河廊道穿越松機腹地，銜接松山、信義</li>
+          <li><b>民族東路</b>向東穿越機場基地串聯大直、內湖；向西接建國、新生高架</li>
+        </ol>
       </div>
     </div>
   </div>
 </section>
 
 <!-- VALLEY -->
-<section class="sec dark valley" id="valley">
+<section class="sec tint valley" id="valley">
   <div class="wrap">
-    <p class="kicker">大台北 = 亞洲新矽谷</p>
-    <h2 class="h2">蔣萬安 ＋ 李四川 ＝ <span class="gold">大台北新矽谷</span></h2>
+    <div class="sec-head">
+      <p class="kicker"><span class="no">09</span>大台北 = 亞洲新矽谷</p>
+      <h2 class="h2">蔣萬安 ＋ 李四川 ＝ <span class="mark">大台北新矽谷</span></h2>
+    </div>
     <div class="duo">
       <figure class="person"><img src="assets/photos/chiang-stage.jpg" alt="臺北市長蔣萬安" loading="lazy"><figcaption><b>蔣萬安</b>臺北市長<br>臺北AI園區 300 公頃</figcaption></figure>
       <div class="plus" aria-hidden="true">＋</div>
@@ -314,52 +337,55 @@
     </div>
     <div class="grid2">
       <div>
-        <blockquote class="quote light">「AI 這一波，是歷史時刻，也是台灣的機遇，新北必須接住。」<cite>— 李四川（臉書）</cite></blockquote>
+        <blockquote class="quote">「AI 這一波，是歷史時刻，也是台灣的機遇，新北必須接住。」<cite>李四川（臉書）</cite></blockquote>
         <p class="big">李四川認同臺北AI園區構想：輝達進駐北士科後，產業鏈都進來，<strong>北市已經沒有地</strong>，應提早規劃；松機如何退場、運量如何移轉，要與中央好好溝通。</p>
         <p class="big">他主張的 <strong>AI 科技廊帶</strong>：蘆社大橋、淡北快線把北士科紅利延伸到新北；<strong>中和光復線往北延伸</strong>，新店、中永和一路接到未來的臺北AI園區；「南有巨蛋城、北有科學城」雙引擎。</p>
       </div>
       <div>
-        <h3 class="h3">🗺️ 首都科技廊帶（CTC）串聯北臺灣 8 縣市</h3>
+        <h3 class="h3">首都科技廊帶（CTC）串聯北臺灣 8 縣市</h3>
         <svg class="ctc" viewBox="0 0 520 440" role="img" aria-labelledby="ctcT">
           <title id="ctcT">首都科技廊帶示意：臺北、新北、基隆、宜蘭、桃園、新竹縣、新竹市、苗栗</title>
-          <g stroke="#ffc83d" stroke-width="4" opacity=".75">
+          <rect width="520" height="440" fill="#14171c"/>
+          <g stroke="#e0a91b" stroke-width="3" opacity=".7">
             <line x1="300" y1="150" x2="245" y2="190"/><line x1="300" y1="150" x2="390" y2="105"/><line x1="300" y1="150" x2="420" y2="250"/>
             <line x1="245" y1="190" x2="160" y2="215"/><line x1="160" y1="215" x2="105" y2="300"/><line x1="105" y1="300" x2="95" y2="335"/><line x1="105" y1="300" x2="70" y2="395"/>
           </g>
-          <g font-weight="700" font-size="20" fill="#fff">
-            <circle cx="300" cy="150" r="30" fill="#ffc83d"/><text x="300" y="157" text-anchor="middle" fill="#1a1200" font-size="19" font-weight="900">臺北</text>
-            <circle cx="245" cy="190" r="16" fill="#6fb4ff"/><text x="215" y="240">新北</text>
-            <circle cx="390" cy="105" r="16" fill="#6fb4ff"/><text x="410" y="96">基隆</text>
-            <circle cx="420" cy="250" r="16" fill="#6fb4ff"/><text x="442" y="258">宜蘭</text>
-            <circle cx="160" cy="215" r="16" fill="#6fb4ff"/><text x="105" y="200">桃園</text>
-            <circle cx="105" cy="300" r="14" fill="#6fb4ff"/><text x="10" y="300">新竹縣</text>
-            <circle cx="95" cy="335" r="12" fill="#6fb4ff"/><text x="10" y="345">新竹市</text>
-            <circle cx="70" cy="395" r="14" fill="#6fb4ff"/><text x="92" y="402">苗栗</text>
+          <g font-weight="700" font-size="20" fill="#efe9dc">
+            <circle cx="300" cy="150" r="30" fill="#e0a91b"/><text x="300" y="157" text-anchor="middle" fill="#14171c" font-size="19" font-weight="900">臺北</text>
+            <circle cx="245" cy="190" r="12" fill="#14171c" stroke="#efe9dc" stroke-width="3"/><text x="215" y="240">新北</text>
+            <circle cx="390" cy="105" r="12" fill="#14171c" stroke="#efe9dc" stroke-width="3"/><text x="410" y="96">基隆</text>
+            <circle cx="420" cy="250" r="12" fill="#14171c" stroke="#efe9dc" stroke-width="3"/><text x="442" y="258">宜蘭</text>
+            <circle cx="160" cy="215" r="12" fill="#14171c" stroke="#efe9dc" stroke-width="3"/><text x="105" y="200">桃園</text>
+            <circle cx="105" cy="300" r="11" fill="#14171c" stroke="#efe9dc" stroke-width="3"/><text x="10" y="300">新竹縣</text>
+            <circle cx="95" cy="335" r="9" fill="#14171c" stroke="#efe9dc" stroke-width="3"/><text x="10" y="345">新竹市</text>
+            <circle cx="70" cy="395" r="11" fill="#14171c" stroke="#efe9dc" stroke-width="3"/><text x="92" y="402">苗栗</text>
           </g>
         </svg>
-        <ul class="facts small">
+        <ol class="facts small">
           <li>新北：輕軌＋快速道路連結蘆洲、五股、板橋、土城（李四川倡議）</li>
           <li>桃竹苗：各產業園區、桃園機場與「桃竹苗大矽谷推動方案」</li>
           <li>基隆智慧科技園區、宜蘭科學園區</li>
-        </ul>
+        </ol>
       </div>
     </div>
   </div>
 </section>
 
 <!-- QUOTE BAND -->
-<section class="quote-band" style="background-image:linear-gradient(90deg,rgba(8,14,30,.92),rgba(8,14,30,.55)),url('assets/photos/chiang-podium.jpg');background-position:70% 22%">
+<section class="quote-band" style="background-image:linear-gradient(90deg,rgba(20,23,28,.94),rgba(20,23,28,.6)),url('assets/photos/chiang-podium.jpg');background-position:70% 22%">
   <div class="wrap">
-    <blockquote>「我的第一個任期，成功爭取輝達進駐；<br>我的第二個任期，要抓住 AI 這樣的歷史性機遇，<br>為臺灣開創新的『<span class="gold">AI黃金世紀</span>』。」</blockquote>
-    <p class="who">— 臺北市長 蔣萬安</p>
+    <blockquote>「我的第一個任期，成功爭取輝達進駐；<br>我的第二個任期，要抓住 AI 這樣的歷史性機遇，<br>為臺灣開創新的『<em>AI黃金世紀</em>』。」</blockquote>
+    <p class="who">臺北市長 蔣萬安</p>
   </div>
 </section>
 
 <!-- TIMELINE -->
 <section class="sec" id="timeline">
   <div class="wrap">
-    <p class="kicker">90 年松山機場的轉折</p>
-    <h2 class="h2">從臺北飛行場到臺北AI園區</h2>
+    <div class="sec-head">
+      <p class="kicker"><span class="no">10</span>90 年松山機場的轉折</p>
+      <h2 class="h2">從臺北飛行場到臺北AI園區</h2>
+    </div>
     <ol class="timeline">
       <li><span>1936</span><p>日治時期「臺北飛行場」啟用。</p></li>
       <li><span>1950</span><p>成立「交通部民用航空局臺北航空站」，戰後在臺第一個航空站。</p></li>
@@ -374,38 +400,45 @@
 </section>
 
 <!-- FAQ -->
-<section class="sec light" id="faq">
-  <div class="wrap narrow">
-    <p class="kicker">常見問題</p>
-    <h2 class="h2">大家最想知道的事</h2>
-    <details open><summary>松山機場的旅客要去哪裡搭飛機？</summary><p>蔣萬安表示，五楊高架、機場捷運完成後，臺北到桃園機場約 <b>36 分鐘</b>；桃園機場第三航廈預計 <b>2027</b> 年啟用、第三跑道預計 <b>2033</b> 年完工，整體量能足以承接松機運量。（桃園機場公司回應：三航廈、三跑道的規劃尚未納入松機遷移，後續仍需協調。）</p></details>
-    <details><summary>國防、救災、離島航線怎麼辦？</summary><p>松山機場是軍民合用機場，也有空勤總隊駐點。蔣萬安說明，市府一定會與國防部及中央政府共同合作、共同討論。交通部與內政部已表示需從國家整體角度審慎評估，這是後續最關鍵的協調課題。</p></details>
-    <details><summary>什麼時候會完成？</summary><p>市府表示，松機遷移計畫預計於 <b>2033</b> 年完成，以 2026 年計約 7 年，但現在就必須開始規劃準備，將全力溝通、爭取中央及市民支持。</p></details>
-    <details><summary>12 兆產值怎麼算的？</summary><p>市府產業局以目前內湖科技園區每公頃 <b>360 億元</b>產值為基數，並考量科技業發展趨勢等因素推估。</p></details>
-    <details><summary>110 公頃有多大？</summary><p>與倫敦海德公園相近，約為東京代代木公園的 2 倍、大安森林公園的 4 倍。</p></details>
-    <details><summary>這個網站是官方的嗎？</summary><p>不是。這是依據臺北市政府新聞稿與媒體報導整理的<strong>非官方</strong>介紹網站，3D 與地圖中的園區配置均為示意。正式內容請以臺北市政府公告為準。</p></details>
+<section class="sec tint" id="faq">
+  <div class="wrap faq-in">
+    <div class="sec-head">
+      <p class="kicker"><span class="no">11</span>常見問題</p>
+      <h2 class="h2">大家最想知道的事</h2>
+      <p class="sub">依記者會與新聞報導整理。點問題展開回答。</p>
+    </div>
+    <div class="faq-list">
+      <details open><summary>松山機場的旅客要去哪裡搭飛機？</summary><p>蔣萬安表示，五楊高架、機場捷運完成後，臺北到桃園機場約 <b>36 分鐘</b>；桃園機場第三航廈預計 <b>2027</b> 年啟用、第三跑道預計 <b>2033</b> 年完工，整體量能足以承接松機運量。（桃園機場公司回應：三航廈、三跑道的規劃尚未納入松機遷移，後續仍需協調。）</p></details>
+      <details><summary>國防、救災、離島航線怎麼辦？</summary><p>松山機場是軍民合用機場，也有空勤總隊駐點。蔣萬安說明，市府一定會與國防部及中央政府共同合作、共同討論。交通部與內政部已表示需從國家整體角度審慎評估，這是後續最關鍵的協調課題。</p></details>
+      <details><summary>什麼時候會完成？</summary><p>市府表示，松機遷移計畫預計於 <b>2033</b> 年完成，以 2026 年計約 7 年，但現在就必須開始規劃準備，將全力溝通、爭取中央及市民支持。</p></details>
+      <details><summary>12 兆產值怎麼算的？</summary><p>市府產業局以目前內湖科技園區每公頃 <b>360 億元</b>產值為基數，並考量科技業發展趨勢等因素推估。</p></details>
+      <details><summary>110 公頃有多大？</summary><p>與倫敦海德公園相近，約為東京代代木公園的 2 倍、大安森林公園的 4 倍。</p></details>
+      <details><summary>這個網站是官方的嗎？</summary><p>不是。這是依據臺北市政府新聞稿與媒體報導整理的<strong>非官方</strong>介紹網站，3D 與地圖中的園區配置均為示意。正式內容請以臺北市政府公告為準。</p></details>
+    </div>
   </div>
 </section>
 
 <!-- DOWNLOAD -->
-<section class="sec dark" id="download">
+<section class="sec" id="download">
   <div class="wrap">
-    <p class="kicker">帶走分享</p>
-    <h2 class="h2">文字整理・簡報・3D 體驗</h2>
+    <div class="sec-head">
+      <p class="kicker"><span class="no">12</span>帶走分享</p>
+      <h2 class="h2">文字整理・簡報・3D 體驗</h2>
+    </div>
     <div class="dl">
-      <a class="dl-card" href="3d/index.html"><span class="ico">🚕</span><b>3D 臺北 GTA 體驗</b><span>開車到松機，看它變身 AI 園區</span></a>
-      <a class="dl-card" href="transcript/index.html"><span class="ico">📜</span><b>記者會文字整理</b><span>大字版、可搜尋</span></a>
-      <a class="dl-card" href="slides/AI-Golden-Century-Taipei.pptx" download><span class="ico">📊</span><b>PPT 簡報下載</b><span>.pptx，可直接編輯</span></a>
-      <a class="dl-card" href="slides/index.html"><span class="ico">📄</span><b>簡報線上看＋PDF</b><span>16 頁、附講者備註</span></a>
+      <a class="dl-card" href="3d/index.html"><span class="ico">3D</span><b>3D 臺北體驗</b><span>開車到松機，看它變身 AI 園區</span></a>
+      <a class="dl-card" href="transcript/index.html"><span class="ico">TXT</span><b>記者會文字整理</b><span>大字版、可搜尋</span></a>
+      <a class="dl-card" href="slides/AI-Golden-Century-Taipei.pptx" download><span class="ico">PPTX</span><b>PPT 簡報下載</b><span>.pptx，可直接編輯</span></a>
+      <a class="dl-card" href="slides/index.html"><span class="ico">PDF</span><b>簡報線上看＋PDF</b><span>16 頁、附講者備註</span></a>
     </div>
     <div class="share">
-      <button class="btn" id="btnShare">🔗 分享這個網站</button>
+      <button class="btn line" id="btnShare">分享這個網站</button>
     </div>
   </div>
 </section>
 
 <!-- SOURCES -->
-<section class="sec" id="sources">
+<section class="sec sources-sec" id="sources">
   <div class="wrap narrow">
     <h2 class="h3">資料來源</h2>
     <ul class="sources">
@@ -443,13 +476,18 @@
 
 <footer class="foot">
   <div class="wrap">
-    <p class="foot-big">AI黃金世紀，<span class="gold">從臺北開始！</span></p>
+    <p class="foot-big">AI黃金世紀，<em>從臺北開始。</em></p>
     <p>大台北 ＝ 亞洲新矽谷｜蔣萬安 ＋ 李四川 ＝ 大台北新矽谷</p>
     <p class="note">非官方粉絲整理網站・資料截至 2026/10/09・<a href="privacy/">隱私與資料說明</a></p>
   </div>
 </footer>
 
-<a class="fab" href="3d/index.html" aria-label="進入 3D 體驗">🚕<span>3D</span></a>
+<a class="fab" href="3d/index.html" aria-label="進入 3D 體驗"><span>3D</span>開車看</a>
+<!-- the 3D city opens here, on top of the page, so there is nothing to switch to -->
+<div class="play3d" id="play3d" role="dialog" aria-modal="true" aria-label="3D 臺北 2033" hidden>
+  <iframe id="play3dFrame" title="3D 臺北 2033" allow="fullscreen; gamepad"></iframe>
+  <button class="play3d-close" id="play3dClose" type="button"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M19 12H5M11 6l-6 6 6 6"/></svg>回到網站</button>
+</div>
 <script src="assets/js/site.js" defer></script>
 </body>
 </html>

@@ -13,10 +13,10 @@
 <meta property="og:image" content="https://ai2033.taipei/assets/og-3d.jpg">
 <meta name="twitter:card" content="summary_large_image">
 <meta name="twitter:image" content="https://ai2033.taipei/assets/og-3d.jpg">
-<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🚕</text></svg>">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'></text></svg>">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@500;700;900&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=Noto+Sans+TC:wght@500;700;900&family=Noto+Serif+TC:wght@900&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="style.css">
 <script type="importmap">
 { "imports": { "three": "../vendor/three/three.module.min.js", "three/addons/": "../vendor/three/addons/" } }
@@ -39,14 +39,14 @@
       <blockquote id="introQuote"></blockquote>
       <div class="load"><div class="bar"><i id="loadBar"></i></div><span id="loadText">載入 3D 臺北中…</span></div>
       <div class="intro-actions">
-        <button id="btnStart" class="btn primary" disabled>▶ 開始任務</button>
-        <button id="btnRace" class="btn race" disabled>🏁 外送挑戰賽</button>
-        <a class="btn ghost" href="../rank/">🏆 排行榜</a>
-        <button id="btnTour" class="btn" disabled>🎬 看導覽動畫</button>
+        <button id="btnStart" class="btn primary" disabled>開始任務</button>
+        <button id="btnRace" class="btn race" disabled>外送挑戰賽</button>
+        <a class="btn ghost" href="../rank/">排行榜</a>
+        <button id="btnTour" class="btn" disabled>看導覽動畫</button>
         <a class="btn ghost" href="../index.html">← 回介紹網站</a>
       </div>
       <div class="intro-board" id="introBoard" hidden>
-        <p class="ib-title" id="ibTitle">🏆 外送王・全台總榜</p>
+        <p class="ib-title" id="ibTitle">外送王・全台總榜</p>
         <ol class="race-board" id="ibList"></ol>
         <a class="race-all" href="../rank/">看完整排行榜（總榜＋5 張任務榜）→</a>
       </div>
@@ -64,17 +64,19 @@
     <div class="srow" id="srow"></div>
   </div>
   <div id="toolbar">
-    <button class="tb race" id="tbRace" title="2033 外送王（G）">🏁 <b>外送賽</b></button>
-    <button class="tb" id="tbRank" title="排行榜（B）">🏆 <b>排行榜</b></button>
-    <button class="tb" id="tbYear" title="切換 2026 / 2033（Y）">🕰️ <b>2026⇄2033</b></button>
-    <button class="tb" id="tbMode" title="開車 / 空拍（F）">🚁 <b>空拍</b></button>
-    <button class="tb" id="tbTime" title="黃昏 / 夜晚 / 白天（N）">🌙 <b>夜晚</b></button>
-    <button class="tb" id="tbTour" title="導覽動畫（T）">🎬 <b>導覽</b></button>
-    <button class="tb" id="tbHelp" title="操作說明（H）">❓ <b>說明</b></button>
-    <a class="tb" href="../index.html" title="回介紹網站">🏠 <b>首頁</b></a>
+    <button class="tb race" id="tbRace" data-i="flag" title="2033 外送王（G）"><b>外送賽</b></button>
+    <button class="tb" id="tbRank" data-i="trophy" title="排行榜（B）"><b>排行榜</b></button>
+    <button class="tb" id="tbYear" data-i="clock" title="切換 2026 / 2033（Y）"><b>2026⇄2033</b></button>
+    <button class="tb" id="tbMode" data-i="drone" title="開車 / 空拍（F）"><b>空拍</b></button>
+    <button class="tb" id="tbWalk" data-i="walk" title="下車走走：街景模式（V）"><b>街景</b></button>
+    <button class="tb" id="tbTime" data-i="moon" title="黃昏 / 夜晚 / 白天（N）"><b>夜晚</b></button>
+    <button class="tb" id="tbTour" data-i="film" title="導覽動畫（T）"><b>導覽</b></button>
+    <button class="tb" id="tbHelp" data-i="help" title="操作說明（H）"><b>說明</b></button>
+    <a class="tb" href="../index.html" title="回介紹網站" data-i="home"><b>首頁</b></a>
   </div>
   <div id="radar"><canvas id="radarC" width="260" height="260"></canvas><span class="n">N</span></div>
   <a id="osmCredit" href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">© OpenStreetMap</a>
+  <div id="where" class="panel" hidden aria-live="polite"></div>
   <div id="speedo" class="panel"><b id="spd">0</b><small>km/h</small></div>
   <div id="boostMeter" class="panel" hidden><b id="bmTag">BOOST</b><div class="bm-bars"><i></i><i></i><i></i></div></div>
   <div id="boostPop" hidden><b></b><small></small></div>
@@ -88,9 +90,9 @@
 <div id="touch" hidden>
   <div id="stick"><div id="knob"></div></div>
   <div id="tbtns">
-    <button id="tUp" class="tbtn">⬆︎</button>
-    <button id="tDown" class="tbtn">⬇︎</button>
-    <button id="tBoost" class="tbtn">⚡</button>
+    <button id="tUp" class="tbtn" data-i="up" aria-label="油門"></button>
+    <button id="tDown" class="tbtn" data-i="down" aria-label="煞車／倒車"></button>
+    <button id="tBoost" class="tbtn" data-i="bolt" aria-label="加速"></button>
   </div>
 </div>
 
@@ -103,7 +105,7 @@
       <div class="card-big" id="cardBig"></div>
       <h2 id="cardTitle"></h2>
       <p id="cardText"></p>
-      <button class="btn primary" id="cardOk">繼續 ▶</button>
+      <button class="btn primary" id="cardOk">繼續 </button>
     </div>
   </div>
 </section>
@@ -116,10 +118,11 @@
       <table>
         <tr><th>開車</th><td><kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> 或方向鍵；<kbd>空白</kbd> 煞車；按住 <kbd>Shift</kbd> 三段加速：加速 → 衝刺 → 極速（放開、煞車或撞到就回一般速度）</td></tr>
         <tr><th>空拍</th><td><kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> 移動；<kbd>E</kbd>/<kbd>Q</kbd> 上升/下降；拖曳滑鼠轉視角</td></tr>
+        <tr><th>街景</th><td>按 <kbd>V</kbd> 下車，用路人的高度逛街：<kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> 走路、<kbd>Shift</kbd> 小跑、拖曳滑鼠看四周；再按 <kbd>V</kbd> 回到車上</td></tr>
         <tr><th>視角</th><td>拖曳滑鼠旋轉、滾輪縮放</td></tr>
-        <tr><th>快捷鍵</th><td><kbd>Y</kbd> 年份 <kbd>F</kbd> 開車/空拍 <kbd>N</kbd> 日夜 <kbd>T</kbd> 導覽 <kbd>R</kbd> 回到道路 <kbd>G</kbd> 外送賽</td></tr>
+        <tr><th>快捷鍵</th><td><kbd>Y</kbd> 年份 <kbd>F</kbd> 開車/空拍 <kbd>V</kbd> 街景 <kbd>N</kbd> 日夜 <kbd>T</kbd> 導覽 <kbd>R</kbd> 回到道路 <kbd>G</kbd> 外送賽</td></tr>
         <tr><th>外送賽</th><td>在 2033 年的園區裡依序送 5 單。每單都有任務榜：進前 10 名時計時暫停，可以馬上登錄，或繼續送、最後連同總榜一起登錄（輸入 3 個英文字母）</td></tr>
-        <tr><th>手機</th><td>左下搖桿轉方向（往上推也會前進）；右側 ⬆ 油門、⬇ 煞車／倒車；按住 ⚡ 直接三段加速。空拍時 ⬆⬇ 是升降</td></tr>
+        <tr><th>手機</th><td>左下搖桿轉方向（往上推也會前進）；右側 油門、煞車／倒車；按住 直接三段加速。空拍時 是升降</td></tr>
       </table>
       <p class="fine">地圖資料：<a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">© OpenStreetMap 貢獻者</a>（ODbL）。照片：臺北市政府、高雄市政府（姓名標示）、Solomon203（<a href="https://creativecommons.org/licenses/by-sa/4.0/deed.zh-hant" target="_blank" rel="noopener">CC BY-SA 4.0</a>），皆來自 Wikimedia Commons，每張的作者與授權見<a href="../index.html#sources">介紹網站</a>。<a href="../privacy/">隱私與資料說明</a>。</p>
       <button class="btn primary" id="helpOk">知道了</button>
@@ -139,25 +142,25 @@
       <p class="fine" id="fNote"></p>
       <div class="intro-actions">
         <button class="btn primary" id="fFree">繼續自由探索</button>
-        <a class="btn" href="../transcript/index.html">📜 記者會文字整理</a>
-        <a class="btn" href="../index.html">🏠 回介紹網站</a>
+        <a class="btn" href="../transcript/index.html">記者會文字整理</a>
+        <a class="btn" href="../index.html">回介紹網站</a>
       </div>
     </div>
   </div>
 </section>
 
-<!-- 2033 外送王 boards, any time (🏆) -->
+<!-- 2033 外送王 boards, any time () -->
 <section id="boardView" class="modal" hidden role="dialog" aria-modal="true" aria-labelledby="bvTitle">
   <div class="card leg-card">
     <div class="card-body">
-      <p class="kicker">🏆 2033 外送王排行榜</p>
+      <p class="kicker">2033 外送王排行榜</p>
       <div class="race-tabs" id="bvTabs" role="tablist"></div>
       <h3 class="race-bt" id="bvTitle"></h3>
       <ol class="race-board" id="bvList"></ol>
       <a class="race-all" id="bvAll" href="../rank/" target="_blank" rel="noopener">看前 20 名・完整排行榜 →</a>
       <div class="intro-actions">
         <button class="btn primary" id="bvOk">知道了</button>
-        <button class="btn race" id="bvRace">🏁 我也要挑戰</button>
+        <button class="btn race" id="bvRace">我也要挑戰</button>
       </div>
     </div>
   </div>
@@ -172,8 +175,8 @@
       <p class="race-note" id="luRank"></p>
       <ol class="race-board" id="luBoard"></ol>
       <div class="intro-actions">
-        <button class="btn primary" id="luGo">▶ 繼續送下一單</button>
-        <button class="btn" id="luReg">🏁 現在登錄並結束</button>
+        <button class="btn primary" id="luGo">繼續送下一單</button>
+        <button class="btn" id="luReg">現在登錄並結束</button>
       </div>
       <p class="fine" id="luNote"></p>
     </div>
@@ -184,7 +187,7 @@
 <section id="raceEnd" class="modal" hidden role="dialog" aria-modal="true" aria-labelledby="reTime">
   <div class="card race-card">
     <div class="card-body race-main">
-      <p class="kicker" id="reKicker">🏁 2033 外送王・全部送達</p>
+      <p class="kicker" id="reKicker">2033 外送王・全部送達</p>
       <div class="race-time" id="reTime">0:00.00</div>
       <p class="race-note" id="reNote"></p>
       <ol class="race-splits" id="reSplits"></ol>
@@ -200,18 +203,18 @@
     </div>
     <div class="card-body race-side">
       <div class="race-tabs" id="reTabs" role="tablist"></div>
-      <h3 class="race-bt" id="reBoardTitle">🏆 排行榜</h3>
+      <h3 class="race-bt" id="reBoardTitle">排行榜</h3>
       <p class="race-rank" id="reRank"></p>
       <ol class="race-board" id="reBoard"></ol>
-      <a class="race-all" id="reAll" href="../rank/" target="_blank" rel="noopener">🏆 看完整排行榜 →</a>
+      <a class="race-all" id="reAll" href="../rank/" target="_blank" rel="noopener">看完整排行榜 →</a>
       <div class="race-share" id="reShareRow" hidden>
         <div class="sh-links"><a id="shFb" target="_blank" rel="noopener">Facebook</a><a id="shTh" target="_blank" rel="noopener">Threads</a><a id="shLine" target="_blank" rel="noopener">LINE</a><a id="shX" target="_blank" rel="noopener">X</a></div>
         <div class="sh-copy"><textarea id="shText" rows="3" readonly></textarea><button class="btn" id="shCopy">複製</button></div>
       </div>
       <div class="intro-actions">
-        <button class="btn primary" id="reAgain">🔁 再跑一次</button>
-        <button class="btn" id="reShare">📣 分享成績</button>
-        <button class="btn ghost" id="reFree">🚕 自由開車</button>
+        <button class="btn primary" id="reAgain">再跑一次</button>
+        <button class="btn" id="reShare">分享成績</button>
+        <button class="btn ghost" id="reFree">自由開車</button>
       </div>
     </div>
   </div>

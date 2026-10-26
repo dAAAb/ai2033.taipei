@@ -1,6 +1,6 @@
 // Geometry builders for the OSM-derived city (buildings, roads, water, green, airport) and the 2033 layout.
 import * as THREE from 'three';
-import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
+import { mergeGeometries, mergeVertices } from 'three/addons/utils/BufferGeometryUtils.js';
 
 export const U = {                       // shared animated uniforms
   uT: { value: 0 },                      // 0 = 2026, 1 = 2033
@@ -96,6 +96,8 @@ export function ribbons(lines, y, widthFn, colorFn) {
 // ---------- materials ----------
 const WINDOW_GLSL = /* glsl */`
   float whash(vec2 p){ return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
+  // step(e, x) with its edge blurred over one pixel, so thin patterns blend instead of flickering as the camera moves
+  float aas(float e, float x, float w){ return smoothstep(e - w, e + w, x); }
 `;
 // Patch a Lambert/Standard material: windows on walls, night emissive, 2026->2033 grow/sink per building.
 export function patchBuildingMaterial(mat, { instanced = false, glass = false } = {}) {
@@ -103,8 +105,8 @@ export function patchBuildingMaterial(mat, { instanced = false, glass = false } 
     sh.uniforms.uT = U.uT; sh.uniforms.uNight = U.uNight; sh.uniforms.uTime = U.uTime;
     sh.vertexShader = sh.vertexShader
       .replace('#include <common>', `#include <common>
-        uniform float uT; varying vec2 vWin; varying float vRoof; varying float vSeed; varying float vDistB;
-        ${instanced ? 'attribute vec3 aI;' : 'attribute float aWin; attribute vec4 aB;'}`)
+        uniform float uT; varying vec2 vWin; varying float vRoof; varying float vSeed; varying float vDistB; varying float vTopD;
+        ${instanced ? 'attribute vec3 aI;' : 'attribute float aWin; attribute vec4 aB; attribute float aTop;'}`)
       .replace('#include <begin_vertex>', `#include <begin_vertex>
         ${instanced ? `
           vec3 sc = vec3(length(instanceMatrix[0].xyz), length(instanceMatrix[1].xyz), length(instanceMatrix[2].xyz));
@@ -112,6 +114,7 @@ export function patchBuildingMaterial(mat, { instanced = false, glass = false } 
           vWin = vec2(lp.x + lp.z + aI.y * 3.0, lp.y);
           vRoof = step(0.5, normal.y);
           vSeed = aI.x;
+          vTopD = 1e4;
         ` : `
           float sink = aB.x > 0.5 && aB.x < 1.5 ? uT : 0.0;
           float grow = aB.x > 1.5 ? smoothstep(0.35, 1.0, uT) * aB.y / 50.0 : 0.0;
@@ -119,24 +122,61 @@ export function patchBuildingMaterial(mat, { instanced = false, glass = false } 
           vWin = vec2(aWin * 0.25, transformed.y);
           vRoof = step(0.5, normal.y);
           vSeed = aB.z / 255.0;
+          vTopD = aTop * 0.1 * (1.0 + grow) * (1.0 - sink) - sink * 4.0 - transformed.y;   // metres below the roof line
         `}`);
     sh.vertexShader = sh.vertexShader.replace('#include <project_vertex>', '#include <project_vertex>\nvDistB = -mvPosition.z;');
     sh.fragmentShader = sh.fragmentShader
       .replace('#include <common>', `#include <common>
-        uniform float uNight; uniform float uTime; varying vec2 vWin; varying float vRoof; varying float vSeed; varying float vDistB; ${WINDOW_GLSL}`)
+        uniform float uNight; uniform float uTime; varying vec2 vWin; varying float vRoof; varying float vSeed; varying float vDistB; varying float vTopD; ${WINDOW_GLSL}`)
       .replace('#include <color_fragment>', `#include <color_fragment>
-        float winMask = 0.0; float winRnd = 0.0;
+        float winMask = 0.0; float winRnd = 0.0; float shop = 0.0; float winSharp = 0.0; float rndRaw = 0.0;
+        float near = smoothstep(2600.0, 900.0, vDistB);
+        // derivatives are taken outside the branch; once a window cell is under ~2 pixels the grid fades to its average
+        vec2 cell = vec2(vWin.x / ${glass ? '2.4' : '3.4'}, (vWin.y - 0.6) / 3.3);
+        vec2 fw = max(fwidth(cell), vec2(1e-4));
+        float detail = 1.0 - smoothstep(0.15, 0.4, max(fw.x, fw.y));
+        float fy = fwidth(vWin.y), fx = fwidth(vWin.x); float ft = max(fwidth(vTopD), 1e-3);
         if (vRoof < 0.5) {
-          vec2 cell = vec2(vWin.x / ${glass ? '2.4' : '3.4'}, (vWin.y - 0.6) / 3.3);
           vec2 f = fract(cell); vec2 id = floor(cell);
-          winMask = step(${glass ? '0.06' : '0.2'}, f.x) * step(f.x, ${glass ? '0.94' : '0.8'}) * step(0.22, f.y) * step(f.y, 0.86) * step(0.0, cell.y);
-          winRnd = whash(id + vec2(vSeed * 91.7, vSeed * 13.3));
-          diffuseColor.rgb = mix(diffuseColor.rgb, diffuseColor.rgb * 0.42 + vec3(0.06, 0.1, 0.16), winMask * ${glass ? '0.75' : '0.7'} * smoothstep(2600.0, 900.0, vDistB));
+          float sharp = aas(${glass ? '0.06' : '0.2'}, f.x, fw.x) * (1.0 - aas(${glass ? '0.94' : '0.8'}, f.x, fw.x)) * aas(0.22, f.y, fw.y) * (1.0 - aas(0.86, f.y, fw.y));
+          winMask = mix(${glass ? '0.88 * 0.64' : '0.6 * 0.64'}, sharp, detail) * step(0.0, cell.y);
+          rndRaw = whash(id + vec2(vSeed * 91.7, vSeed * 13.3));
+          winRnd = mix(0.55, rndRaw, detail);
+          winSharp = sharp * step(0.0, cell.y);
+          // ground floor reads as shopfronts (wide glass, an awning stripe), the floors above as windows with
+          // a sky reflection that brightens with height and a few drawn curtains
+          ${glass ? '' : `shop = (1.0 - aas(4.2, vWin.y, fy)) * aas(0.8, vWin.y, fy);
+          winMask *= aas(4.2, vWin.y, fy); winSharp *= aas(4.2, vWin.y, fy);
+          float awning = aas(3.7, vWin.y, fy) * (1.0 - aas(4.3, vWin.y, fy));
+          vec3 awnC = mix(vec3(0.62, 0.16, 0.12), vec3(0.12, 0.38, 0.5), step(0.5, vSeed));
+          diffuseColor.rgb = mix(diffuseColor.rgb, awnC, awning * near);
+          float pane = mix(0.96, aas(0.04, fract(vWin.x / 4.5), fx / 4.5), detail) * (1.0 - aas(3.6, vWin.y, fy));
+          diffuseColor.rgb = mix(diffuseColor.rgb, vec3(0.1, 0.12, 0.14), shop * pane * near * 0.85);
+          float ledge = (1.0 - aas(0.06, fract((vWin.y - 0.6) / 3.3), fw.y)) * aas(4.2, vWin.y, fy) * detail;
+          diffuseColor.rgb *= 1.0 - ledge * 0.12 * near;`}
+          vec3 glassC = mix(vec3(0.2, 0.26, 0.33), vec3(0.5, 0.62, 0.74), smoothstep(0.0, 120.0, vWin.y)) * (0.75 + winRnd * 0.45);
+          glassC = mix(glassC, vec3(0.78, 0.74, 0.66), step(0.9, winRnd) * 0.6);
+          diffuseColor.rgb = mix(diffuseColor.rgb, mix(diffuseColor.rgb * 0.42 + vec3(0.06, 0.1, 0.16), glassC, 0.7), winMask * ${glass ? '0.75' : '0.7'} * near);
+          // nothing above the top floor's windows; a dark cornice line at the roof edge and a paler parapet cap
+          float underRoof = aas(0.9, vTopD, ft);
+          winMask *= underRoof; winSharp *= underRoof; shop *= aas(0.9, vTopD, ft);
+          float cornice = aas(-0.02, vTopD, ft) * (1.0 - aas(0.28, vTopD, ft));
+          diffuseColor.rgb *= 1.0 - cornice * 0.32 * near;
+          diffuseColor.rgb = mix(diffuseColor.rgb, diffuseColor.rgb * 1.08 + 0.03, (1.0 - aas(-0.02, vTopD, ft)) * near);
+          // contact shadow where walls meet the street, and a slight tone change between façade bays
+          diffuseColor.rgb *= mix(0.62, 1.0, smoothstep(0.0, 7.0, vWin.y));
+          diffuseColor.rgb *= 1.0 - (whash(vec2(floor(vWin.x * 0.7), vSeed)) * 0.06) * near * (1.0 - smoothstep(0.3, 0.8, fx * 0.7));
         }`)
       .replace('#include <emissivemap_fragment>', `#include <emissivemap_fragment>
-        float lit = winMask * step(${glass ? '0.35' : '0.5'}, winRnd) * uNight;
+        // far away the lit share varies per building instead of per window, so distant blocks stay patchy rather than evenly glowing
+        float farLit = 0.08 + 0.32 * fract(vSeed * 7.13);
+        // lit windows keep their own sparkle until a window is well under a pixel (night views are what people look at)
+        float detailLit = 1.0 - smoothstep(0.45, 1.2, max(fw.x, fw.y));
+        float lit = mix(winMask * farLit, winSharp * step(${glass ? '0.35' : '0.5'}, rndRaw), detailLit) * uNight;
         vec3 wc = mix(vec3(1.0, 0.78, 0.45), vec3(0.7, 0.85, 1.0), step(0.82, winRnd));
         totalEmissiveRadiance += lit * wc * ${glass ? '1.1' : '0.95'};
+        totalEmissiveRadiance += shop * (1.0 - aas(3.6, vWin.y, fy)) * near * mix(0.04, 0.4, uNight) * mix(vec3(1.0, 0.82, 0.55), vec3(0.85, 0.95, 1.0), step(0.6, vSeed));
+        totalEmissiveRadiance += winMask * near * (1.0 - uNight) * vec3(0.05, 0.07, 0.1) * (0.5 + winRnd);   // daylight sky caught in the glass
         totalEmissiveRadiance += (1.0 - vRoof) * uNight * diffuseColor.rgb * 0.05;`);
   };
   mat.customProgramCacheKey = () => 'bld' + (instanced ? 'I' : '') + (glass ? 'G' : '');
@@ -166,20 +206,25 @@ export function patchRoadMaterial(mat, runway = false) {
       .replace('#include <begin_vertex>', '#include <begin_vertex>\nvRoad = aRoad;')
       .replace('#include <project_vertex>', '#include <project_vertex>\nvDist = -mvPosition.z;');
     sh.fragmentShader = sh.fragmentShader
-      .replace('#include <common>', '#include <common>\nuniform float uNight; varying vec3 vRoad; varying float vDist;')
+      .replace('#include <common>', '#include <common>\nuniform float uNight; varying vec3 vRoad; varying float vDist;' + WINDOW_GLSL)
       .replace('#include <color_fragment>', `#include <color_fragment>
         float w = vRoad.z; float a = vRoad.y; float s = vRoad.x;
         float near = smoothstep(${runway ? '1800.0' : '420.0'}, ${runway ? '600.0' : '160.0'}, vDist);
-        float edge = (step(a, 0.6 / w) + step(1.0 - 0.6 / w, a)) * step(9.0, w);
+        float fa = max(fwidth(a), 1e-4), fs = max(fwidth(s / 9.0), 1e-4);
+        float edge = ((1.0 - aas(0.6 / w, a, fa)) + aas(1.0 - 0.6 / w, a, fa)) * step(9.0, w);
         float lanes = floor(w / 3.4);
         float lane = abs(fract(a * lanes) - 0.5);
-        float dash = step(0.5, fract(s / 9.0)) * step(lane, 0.12 / w * lanes) * step(9.0, w) * step(0.12, a) * step(a, 0.88);
+        float hw = 0.12 / w * lanes, fl = fa * lanes;
+        // a line thinner than a pixel fades to its share of the pixel instead of popping in and out
+        float line = (1.0 - aas(hw, lane, fl)) * min(1.0, hw * 2.0 / fl);
+        float dashOn = mix(0.5, aas(0.5, fract(s / 9.0), fs), 1.0 - smoothstep(0.25, 0.5, fs));
+        float dash = dashOn * line * step(9.0, w) * aas(0.12, a, fa) * (1.0 - aas(0.88, a, fa));
         ${runway ? `
           float centre = step(abs(a - 0.5), 0.012) * step(0.45, fract(s / 60.0));
           float thr = (step(s, 60.0) + step(vRoad.x, 0.0)) * step(0.5, fract(a * 12.0));
           diffuseColor.rgb = mix(diffuseColor.rgb, vec3(0.95), clamp(centre + edge, 0.0, 1.0) * near);
         ` : `
-          float yellow = step(abs(a - 0.5), 0.35 / w) * step(14.0, w);
+          float yellow = (1.0 - aas(0.35 / w, abs(a - 0.5), fa)) * step(14.0, w);
           diffuseColor.rgb = mix(diffuseColor.rgb, vec3(0.92), clamp(edge * 0.8 + dash * 0.9, 0.0, 1.0) * near);
           diffuseColor.rgb = mix(diffuseColor.rgb, vec3(0.95, 0.75, 0.2), yellow * near);
         `}`)
@@ -214,13 +259,34 @@ export function buildBuildings(D, limit = Infinity, tileSize = 900) {
   const n = Math.min(B.h.length, limit);
   const tiles = new Map();
   const footprints = [];   // for collisions
+  // the OSM export holds many footprints twice (an outline and a building:part, with different heights); two
+  // buildings in the same place z-fight wall against wall, so keep only the tallest copy of each footprint
+  const rings = [], best = new Map();
   let ptr = 0;
   for (let i = 0; i < n; i++) {
-    const np = B.n[i];
-    let r = [], x = 0, z = 0;
-    for (let j = 0; j < np; j++) { x += B.c[ptr++]; z += B.c[ptr++]; r.push([x / S, z / S]); }
+    const r = [], np = B.n[i]; let x = 0, z = 0;
+    for (let j = 0; j < np; j++) { x += B.c[ptr++]; z += B.c[ptr++]; r.push([x, z]); }
+    const key = r.map(p => p[0] + ',' + p[1]).sort().join(';');
+    rings.push({ r, key });
+    const b = best.get(key);
+    if (b === undefined || B.h[i] > B.h[b]) best.set(key, i);
+  }
+  for (let i = 0; i < n; i++) {
+    if (best.get(rings[i].key) !== i) continue;
+    let r = rings[i].r.map(p => [p[0] / S, p[1] / S]);
     if (r.length < 3) continue;
     if (signedArea(r) < 0) r.reverse();
+    // building parts that share an outline's wall would still z-fight: pull every footprint in by a few
+    // centimetres, less for taller buildings, so the taller wall always sits in front
+    const inset = Math.min(0.2, Math.max(0.02, 0.2 - B.h[i] * 0.0025)) + hash(i * 1.7) * 0.015;
+    r = r.map((p, k) => {
+      const a = r[(k + r.length - 1) % r.length], b = r[(k + 1) % r.length];
+      let l1 = Math.hypot(p[0] - a[0], p[1] - a[1]) || 1, l2 = Math.hypot(b[0] - p[0], b[1] - p[1]) || 1;
+      const n1x = -(p[1] - a[1]) / l1, n1z = (p[0] - a[0]) / l1, n2x = -(b[1] - p[1]) / l2, n2z = (b[0] - p[0]) / l2;
+      let mx = n1x + n2x, mz = n1z + n2z; const ml = Math.hypot(mx, mz) || 1; mx /= ml; mz /= ml;
+      const k2 = inset / Math.max(0.5, mx * n1x + mz * n1z);
+      return [p[0] + mx * k2, p[1] + mz * k2];
+    });
     let cx = 0, cz = 0; for (const p of r) { cx += p[0]; cz += p[1]; } cx /= r.length; cz /= r.length;
     const key = Math.floor(cx / tileSize) + ',' + Math.floor(cz / tileSize);
     if (!tiles.has(key)) tiles.set(key, []);
@@ -235,8 +301,8 @@ export function buildBuildings(D, limit = Infinity, tileSize = 900) {
   const group = new THREE.Group();
   const col = new THREE.Color(), roofC = new THREE.Color();
   for (const [key, list] of tiles) {
-    let nv = 0; for (const b of list) nv += b.r.length * 4 + b.r.length;
-    const P = new Float32Array(nv * 3), N = new Int8Array(nv * 3), C = new Uint8Array(nv * 3), W = new Uint16Array(nv), A = new Uint8Array(nv * 4);
+    let nv = 0; for (const b of list) nv += b.r.length * 8 + b.r.length;
+    const P = new Float32Array(nv * 3), N = new Int8Array(nv * 3), C = new Uint8Array(nv * 3), W = new Uint16Array(nv), A = new Uint8Array(nv * 4), T = new Uint16Array(nv);
     const idx = [];
     let v = 0;
     for (const b of list) {
@@ -247,21 +313,27 @@ export function buildBuildings(D, limit = Infinity, tileSize = 900) {
       if (f === 1) col.lerp(new THREE.Color(0xd0d4d8), 0.5);
       roofC.copy(col).multiplyScalar(0.78);
       const cR = Math.round(col.r * 255), cG = Math.round(col.g * 255), cB = Math.round(col.b * 255);
+      // a parapet: the walls rise a little above the roof, with an inward-facing skin so it reads from above
+      const par = h >= 6 ? (tall ? 1.3 : 0.9) : 0, top = Math.min(65535, Math.round(h * 10));
       let per = 0;
       for (let i = 0; i < r.length; i++) {
         const p = r[i], q = r[(i + 1) % r.length];
         const dx = q[0] - p[0], dz = q[1] - p[1], len = Math.hypot(dx, dz) || 1;
         const nx = dz / len, nz = -dx / len;
-        const quad = [[p[0], 0, p[1], per], [q[0], 0, q[1], per + len], [q[0], h, q[1], per + len], [p[0], h, p[1], per]];
-        for (const qv of quad) {
-          P[v * 3] = qv[0]; P[v * 3 + 1] = qv[1]; P[v * 3 + 2] = qv[2];
-          N[v * 3] = Math.round(nx * 127); N[v * 3 + 1] = 0; N[v * 3 + 2] = Math.round(nz * 127);
-          C[v * 3] = cR; C[v * 3 + 1] = cG; C[v * 3 + 2] = cB;
-          W[v] = Math.min(65535, Math.round(qv[3] * 4));
-          A[v * 4] = f; A[v * 4 + 1] = Math.round(g * 50); A[v * 4 + 2] = Math.round(seed * 255);
-          v++;
+        const quad = [[p[0], 0, p[1], per], [q[0], 0, q[1], per + len], [q[0], h + par, q[1], per + len], [p[0], h + par, p[1], per]];
+        const inner = [[p[0], h, p[1], per], [q[0], h, q[1], per + len], [q[0], h + par, q[1], per + len], [p[0], h + par, p[1], per]];
+        for (const [face, sgn, shade] of [[quad, 1, 1], [inner, -1, 0.8]]) {
+          for (const qv of face) {
+            P[v * 3] = qv[0]; P[v * 3 + 1] = qv[1]; P[v * 3 + 2] = qv[2];
+            N[v * 3] = Math.round(nx * 127 * sgn); N[v * 3 + 1] = 0; N[v * 3 + 2] = Math.round(nz * 127 * sgn);
+            C[v * 3] = cR * shade; C[v * 3 + 1] = cG * shade; C[v * 3 + 2] = cB * shade;
+            W[v] = Math.min(65535, Math.round(qv[3] * 4));
+            A[v * 4] = f; A[v * 4 + 1] = Math.round(g * 50); A[v * 4 + 2] = Math.round(seed * 255); T[v] = top;
+            v++;
+          }
+          const b0 = v - 4;
+          if (sgn > 0) idx.push(b0, b0 + 2, b0 + 1, b0, b0 + 3, b0 + 2); else if (par) idx.push(b0, b0 + 1, b0 + 2, b0, b0 + 2, b0 + 3);
         }
-        const b0 = v - 4; idx.push(b0, b0 + 2, b0 + 1, b0, b0 + 3, b0 + 2);
         per += len;
       }
       const rb = v;
@@ -270,7 +342,7 @@ export function buildBuildings(D, limit = Infinity, tileSize = 900) {
         N[v * 3 + 1] = 127;
         C[v * 3] = Math.round(roofC.r * 255); C[v * 3 + 1] = Math.round(roofC.g * 255); C[v * 3 + 2] = Math.round(roofC.b * 255);
         W[v] = 0;
-        A[v * 4] = f; A[v * 4 + 1] = Math.round(g * 50); A[v * 4 + 2] = Math.round(seed * 255);
+        A[v * 4] = f; A[v * 4 + 1] = Math.round(g * 50); A[v * 4 + 2] = Math.round(seed * 255); T[v] = top;
         v++;
       }
       let tris = [];
@@ -283,6 +355,7 @@ export function buildBuildings(D, limit = Infinity, tileSize = 900) {
     geo.setAttribute('color', new THREE.BufferAttribute(C, 3, true));
     geo.setAttribute('aWin', new THREE.BufferAttribute(W, 1));
     geo.setAttribute('aB', new THREE.BufferAttribute(A, 4));
+    geo.setAttribute('aTop', new THREE.BufferAttribute(T, 1));
     geo.setIndex(idx.length > 65535 ? new THREE.Uint32BufferAttribute(idx, 1) : new THREE.Uint16BufferAttribute(idx, 1));
     geo.computeBoundingSphere();
     // enlarge bounds so grown buildings are not culled
@@ -299,9 +372,26 @@ export function buildBuildings(D, limit = Infinity, tileSize = 900) {
 // ---------- generic low-poly props ----------
 export function makeTreeGeometries() {
   const trunk = new THREE.CylinderGeometry(0.25, 0.35, 2.4, 5); trunk.translate(0, 1.2, 0);
-  const crownA = new THREE.IcosahedronGeometry(1, 0); crownA.scale(1.6, 1.5, 1.6); crownA.translate(0, 3.6, 0);
+  // crown: three jittered lobes so it reads as foliage rather than a gem
+  const lobe = (x, y, z, s) => {
+    const ico = new THREE.IcosahedronGeometry(s, 1); ico.deleteAttribute('uv'); ico.deleteAttribute('normal');
+    const g = mergeVertices(ico), p = g.attributes.position;
+    for (let i = 0; i < p.count; i++) { const k = 0.85 + hash(i * 3.7 + s * 11) * 0.3; p.setXYZ(i, p.getX(i) * k + x, p.getY(i) * k + y, p.getZ(i) * k + z); }
+    return g;
+  };
+  const crownA = mergeGeometries([lobe(0, 0, 0, 1.25), lobe(0.7, 0.35, 0.3, 0.9), lobe(-0.6, 0.25, -0.45, 0.95)]);
+  crownA.computeVertexNormals(); crownA.scale(1.25, 1.15, 1.25); crownA.translate(0, 3.6, 0);
   const crownB = new THREE.ConeGeometry(1.5, 4.2, 6); crownB.translate(0, 4.2, 0);
-  return { trunk, crownA, crownB };
+  // street trees are seen up close: five clusters, shaded darker underneath (vertex colours times the
+  // per-tree instance colour), on a trunk that forks into two limbs
+  const crownD = mergeGeometries([lobe(0, 0, 0, 1.15), lobe(0.85, -0.15, 0.2, 0.85), lobe(-0.75, -0.05, -0.35, 0.9), lobe(0.15, 0.6, -0.55, 0.8), lobe(-0.25, 0.45, 0.7, 0.75)]);
+  crownD.computeVertexNormals(); crownD.scale(1.3, 1.2, 1.3); crownD.translate(0, 3.9, 0);
+  const cp = crownD.attributes.position, shade = [];
+  for (let i = 0; i < cp.count; i++) { const k = THREE.MathUtils.clamp(0.62 + (cp.getY(i) - 2.6) * 0.17, 0.62, 1.15) * (0.92 + hash(i * 0.37) * 0.16); shade.push(k, k, k); }
+  crownD.setAttribute('color', new THREE.Float32BufferAttribute(shade, 3));
+  const limb = (ang, len) => new THREE.CylinderGeometry(0.09, 0.14, len, 5).translate(0, len / 2, 0).rotateZ(ang).translate(0, 2.1, 0);
+  const trunkD = mergeGeometries([new THREE.CylinderGeometry(0.2, 0.32, 2.5, 7).translate(0, 1.25, 0), limb(0.55, 1.4), limb(-0.6, 1.3).rotateY(1.2)]);
+  return { trunk, crownA, crownB, crownD, trunkD };
 }
 
 export function makePlane() {
@@ -320,26 +410,48 @@ export function makePlane() {
   return g;
 }
 
+// ---------- cars ----------
+// side profile (length along x, height along y) extruded across the car's width, then turned so the nose faces +z
+function extrudeSide(pts, width, bevel = 0.06) {
+  const sh = new THREE.Shape(pts.map(([x, y]) => new THREE.Vector2(x, y)));
+  const g = new THREE.ExtrudeGeometry(sh, { depth: width - bevel * 2, bevelEnabled: true, bevelThickness: bevel, bevelSize: bevel, bevelSegments: 2, curveSegments: 4 });
+  g.translate(0, 0, -(width - bevel * 2) / 2).rotateY(-Math.PI / 2);
+  g.deleteAttribute('uv'); return g;
+}
+// body, glasshouse, wheels and lamps for one sedan; lamps carry vertex colours (white at the front, red at the back)
+export function makeCarGeometries() {
+  // lower body to the beltline, a dark glasshouse on top of it, and a thin roof panel in body colour
+  const body = mergeGeometries([extrudeSide([[-2.2, 0.32], [2.2, 0.32], [2.25, 0.62], [2.05, 0.86], [1.05, 0.98], [-1.55, 1.0], [-2.15, 0.94], [-2.25, 0.62]], 1.82),
+    extrudeSide([[0.5, 1.38], [-0.9, 1.4], [-0.9, 1.5], [0.42, 1.48]], 1.66, 0.03)]);
+  const glass = extrudeSide([[1.08, 0.96], [0.46, 1.42], [-0.94, 1.44], [-1.58, 0.98]], 1.7, 0.04);
+  const wheel = new THREE.CylinderGeometry(0.34, 0.34, 0.26, 12).rotateZ(Math.PI / 2);
+  const wheels = mergeGeometries([[-0.86, 1.38], [0.86, 1.38], [-0.86, -1.42], [0.86, -1.42]].map(([x, z]) => wheel.clone().translate(x, 0.34, z)));
+  const lamp = (x, z, w, c) => { const g = new THREE.BoxGeometry(w, 0.13, 0.06).translate(x, 0.74, z); const col = new THREE.Color(c); g.setAttribute('color', new THREE.Float32BufferAttribute(new Array(g.attributes.position.count).fill(0).flatMap(() => [col.r, col.g, col.b]), 3)); g.deleteAttribute('uv'); g.deleteAttribute('normal'); return g; };
+  const lights = mergeGeometries([lamp(-0.62, 2.22, 0.42, 0xfff4d6), lamp(0.62, 2.22, 0.42, 0xfff4d6), lamp(-0.66, -2.26, 0.36, 0xff2a1a), lamp(0.66, -2.26, 0.36, 0xff2a1a)]);
+  return { body, glass, wheels, lights };
+}
+
 export function makeTaxi() {
   const g = new THREE.Group();
   const yellow = new THREE.MeshStandardMaterial({ color: 0xffc400, roughness: 0.35, metalness: 0.25 });
   const glass = new THREE.MeshStandardMaterial({ color: 0x1b2633, roughness: 0.1, metalness: 0.6 });
   const black = new THREE.MeshLambertMaterial({ color: 0x2b2e33 });
   const silver = new THREE.MeshStandardMaterial({ color: 0xd9dde2, metalness: 0.8, roughness: 0.25 });
-  const body = new THREE.Mesh(new THREE.BoxGeometry(1.9, 0.75, 4.5), yellow); body.position.y = 0.75; g.add(body);
-  const cabin = new THREE.Mesh(new THREE.BoxGeometry(1.7, 0.62, 2.4), glass); cabin.position.set(0, 1.42, -0.15); g.add(cabin);
-  const roof = new THREE.Mesh(new THREE.BoxGeometry(1.72, 0.08, 2.0), yellow); roof.position.set(0, 1.76, -0.15); g.add(roof);
+  const C = makeCarGeometries();
+  g.add(new THREE.Mesh(C.body, yellow), new THREE.Mesh(C.glass, glass));
   const signMat = new THREE.MeshStandardMaterial({ color: 0xffffff, emissive: 0xffd34d, emissiveIntensity: 0.6 });
-  const sign = new THREE.Mesh(new THREE.BoxGeometry(0.9, 0.28, 0.3), signMat); sign.position.set(0, 1.94, -0.1); g.add(sign);
+  const sign = new THREE.Mesh(new THREE.BoxGeometry(0.9, 0.26, 0.3), signMat); sign.position.set(0, 1.6, -0.25); g.add(sign);
+  // black-and-yellow checker strip along each side, like Taipei cabs
+  const strip = new THREE.Mesh(new THREE.BoxGeometry(1.86, 0.08, 3.2), new THREE.MeshLambertMaterial({ color: 0x1d1d1d })); strip.position.set(0, 0.72, -0.05); g.add(strip);
   const wheels = [];
   for (const [x, z] of [[-0.95, 1.45], [0.95, 1.45], [-0.95, -1.45], [0.95, -1.45]]) {
-    const w = new THREE.Mesh(new THREE.CylinderGeometry(0.36, 0.36, 0.28, 14), black); w.rotation.z = Math.PI / 2; w.position.set(x, 0.38, z); g.add(w); wheels.push(w);
+    const w = new THREE.Mesh(new THREE.CylinderGeometry(0.34, 0.34, 0.26, 14), black); w.rotation.z = Math.PI / 2; w.position.set(x * 0.9, 0.34, z * 0.96); g.add(w); wheels.push(w);
     const hub = new THREE.Mesh(new THREE.CylinderGeometry(0.2, 0.2, 0.04, 12), silver); hub.position.y = -Math.sign(x) * 0.15; w.add(hub);  // outer face (wheel is rotated 90° about z)
   }
   const hl = new THREE.MeshStandardMaterial({ color: 0xffffff, emissive: 0xfff2c0, emissiveIntensity: 0.3 });
-  for (const x of [-0.65, 0.65]) { const l = new THREE.Mesh(new THREE.BoxGeometry(0.4, 0.18, 0.05), hl); l.position.set(x, 0.85, 2.26); g.add(l); }
+  for (const x of [-0.62, 0.62]) { const l = new THREE.Mesh(new THREE.BoxGeometry(0.42, 0.14, 0.06), hl); l.position.set(x, 0.74, 2.24); g.add(l); }
   const tl = new THREE.MeshStandardMaterial({ color: 0x990000, emissive: 0xff2020, emissiveIntensity: 0.4 });
-  for (const x of [-0.7, 0.7]) { const l = new THREE.Mesh(new THREE.BoxGeometry(0.35, 0.16, 0.05), tl); l.position.set(x, 0.85, -2.26); g.add(l); }
+  for (const x of [-0.66, 0.66]) { const l = new THREE.Mesh(new THREE.BoxGeometry(0.36, 0.13, 0.06), tl); l.position.set(x, 0.74, -2.28); g.add(l); }
   g.traverse(o => { if (o.isMesh) o.castShadow = true; });
   g.userData = { wheels, headMat: hl, signMat };
   return g;
